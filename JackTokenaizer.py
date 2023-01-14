@@ -1,58 +1,58 @@
 import re
-
+from TokensMapping import TokensMapping
 from CompilationEngine import CompilationEngine
 
 class JackTokenaizer:
-    def __init__(self, inputFile, output_file):
+    def __init__(self, inputFile):
         self.current_token = None
         self.current_type = None
-        self.symbols = re.compile("[{}()\[\].,;+\-*\/&|<>=~]")
-        self.keywords = re.compile("""(class|constructor|function|method|field|static|var|int|char|
-                                      boolean|void|true|false|null|this|let|do|if|else|while|return)""")
-        self.integerConst = re.compile("\b\d+\b")
-        self.string = re.compile("[\"](.*)[\"]")
-        self.identifier = re.compile("\b[A-Za-z_][A-Za-z_0-9]*\b")
-        self.in_file = inputFile
-        self.out_file = output_file
+        #self.symbols = re.compile("[{}()\[\].,;+\-*\/&|<>=~]")
+        #self.keywords = re.compile("""(class|constructor|function|method|field|static|var|int|char|
+        #                              boolean|void|true|false|null|this|let|do|if|else|while|return)""")
+        #self.integerConst = re.compile("\b\d+\b")
+        #self.string = re.compile("[\"](.*)[\"]")
+        #self.identifier = re.compile("\b[A-Za-z_][A-Za-z_0-9]*\b")
+        self.in_file = open(inputFile, "r")
+        self.current_line = None
+        self.current_loc_in_line = 0
 
-    def main(self):
-        with open(self.in_file, "r") as in_file:
-            with open(self.out_file, "w") as out_file:
-                for line in in_file:
-                    self.clean_line(line)
-                    if line:
-                        exp = ""
-                        for char in line:
-                            exp += char
-                            exp_match = self.symbols.match(exp)
-                            if exp_match is not None:
-                                xml = self.write_xml(exp_match, "sym")
-                                out_file.write(xml)
-                                exp = ""
-                            
-                            exp_match = self.keywords.match(exp)
-                            if exp_match is not None:
-                                xml = self.write_xml(exp_match, "key")
-                                out_file.write(xml)
-                                exp = ""
-                            
-                            exp_match = self.integerConst.match(exp)
-                            if exp_match is not None:
-                                xml = self.write_xml(exp_match, "int")
-                                out_file.write(xml)
-                                exp = ""
+    def advance(self):
+        
+        if self.current_line:
+            exp = ""
+            exp += self.current_line[self.current_loc_in_line]
+            if (exp in TokensMapping.symbols):
+                self.current_token = exp
+                self.current_type = TokensMapping.token_type[0]
+                exp = ""
+            
+            elif (exp in TokensMapping.keywords):
+                self.current_token = exp
+                self.current_type = TokensMapping.token_type[1]
+                exp = ""
+            
+            elif (exp in TokensMapping.cons_int):
+                while (isinstance(self.current_line[self.current_loc_in_line + 1], int)):
+                    self.current_loc_in_line += 1
+                    exp += self.current_line[self.current_loc_in_line]
+                self.current_token = exp
+                self.current_type = TokensMapping.token_type[2]
+                exp = ""
 
-                            exp_match = self.string.match(exp)
-                            if exp_match is not None:
-                                xml = self.write_xml(exp_match, "str")
-                                out_file.write(xml)
-                                exp = ""
+            elif (exp == "\""):
+                while (self.current_line[self.current_loc_in_line + 1] != "\""):
+                    self.current_loc_in_line += 1
+                    exp += self.current_line[self.current_loc_in_line]
+                self.current_loc_in_line += 1
+                self.current_token = exp
+                self.current_type = TokensMapping.token_type[3]
+                exp = ""
 
-                            exp_match = self.identifier.match(exp)
-                            if exp_match is not None:
-                                xml = CompilationEngine.write_xml(exp_match, "ide")
-                                out_file.write(xml)
-                                exp = ""
+            else:
+                if (self.current_line[self.current_loc_in_line + 1] in [" ", "\n"]): # not anyone of the above so an identifier
+                    self.current_token = exp
+                    self.current_type = TokensMapping.token_type[4] 
+                    exp = ""
                             
     
     # returns a clean line from a given Jack line
