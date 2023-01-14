@@ -59,14 +59,6 @@ class JackTokenaizer:
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
 
-    # returns a clean line from a given Jack line
-    # returns None if no valid code
-    def clean_line(line):
-        if "//" in line:
-            line = line[:line.index("//")]
-        line = line.strip()  # cleaning any additional white space
-        return line
-
 
 if __name__ == "__main__":
     x =JackTokenaizer("./text.txt")
