@@ -54,7 +54,7 @@ class JackTokenaizer:
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_type = TokenTypes.INT
 
-            if len(buffer) > 1 and buffer[-1] in {" ", "\n", "("}:  # not anyone of the above so an identifier
+            if len(buffer) > 1 and not (buffer[-1].isdigit() or buffer[-1].isalpha()):  # not anyone of the above so an identifier
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
