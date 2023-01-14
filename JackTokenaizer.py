@@ -26,12 +26,12 @@ class JackTokenaizer:
             if "/**" in buffer:
                 while not buffer.endswith('*/'):
                     buffer += self.in_file.read(1)
-                buffer = buffer[:buffer.index("/**")] 
+                buffer = buffer[:buffer.index("/**")]
 
             if buffer in TokensMapping.symbols:
                 if buffer == "/":
                     if self.in_file.read(1) in ("/", "*"):
-                        self.in_file.seek(self.in_file.tell()-1)
+                        self.in_file.seek(self.in_file.tell() - 1)
                         continue
                 self.current_token = buffer
                 self.current_type = TokenTypes.SYMBOL
@@ -54,14 +54,14 @@ class JackTokenaizer:
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_type = TokenTypes.INT
 
-            if len(buffer)>1 and buffer[-1] in {" ", "\n", "("} :  # not anyone of the above so an identifier
+            if len(buffer) > 1 and buffer[-1] in {" ", "\n", "("}:  # not anyone of the above so an identifier
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
 
 
 if __name__ == "__main__":
-    x =JackTokenaizer("./text.txt")
+    x = JackTokenaizer("./text.txt")
     while True:
         x.advance()
         print(x.current_type)
