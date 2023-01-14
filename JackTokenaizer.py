@@ -54,8 +54,9 @@ class JackTokenaizer:
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_type = TokenTypes.INT
 
-            if buffer and buffer[-1] in {" ", "\n"}:  # not anyone of the above so an identifier
-                self.current_token = buffer[-1]
+            if len(buffer)>1 and buffer[-1] in {" ", "\n", "("} :  # not anyone of the above so an identifier
+                self.in_file.seek(self.in_file.tell() - 1)
+                self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
 
     # returns a clean line from a given Jack line
@@ -68,4 +69,9 @@ class JackTokenaizer:
 
 
 if __name__ == "__main__":
-    JackTokenaizer("./text.txt").advance()
+    x =JackTokenaizer("./text.txt")
+    while True:
+        x.advance()
+        print(x.current_type)
+        print(x.current_token)
+        print("------------")
