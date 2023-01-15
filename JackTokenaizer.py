@@ -1,67 +1,69 @@
-import re
-from TokensMapping import TokensMapping
-from CompilationEngine import CompilationEngine
+from TokensMapping import TokensMapping, TokenTypes
+
 
 class JackTokenaizer:
     def __init__(self, inputFile):
         self.current_token = None
         self.current_type = None
-        #self.symbols = re.compile("[{}()\[\].,;+\-*\/&|<>=~]")
-        #self.keywords = re.compile("""(class|constructor|function|method|field|static|var|int|char|
-        #                              boolean|void|true|false|null|this|let|do|if|else|while|return)""")
-        #self.integerConst = re.compile("\b\d+\b")
-        #self.string = re.compile("[\"](.*)[\"]")
-        #self.identifier = re.compile("\b[A-Za-z_][A-Za-z_0-9]*\b")
         self.in_file = open(inputFile, "r")
-        self.current_line = None
         self.current_loc_in_line = 0
 
     def advance(self):
-        
-        if self.current_line:
-            exp = ""
-            exp += self.current_line[self.current_loc_in_line]
-            if (exp in TokensMapping.symbols):
-                self.current_token = exp
-                self.current_type = TokensMapping.token_type[0]
-                exp = ""
-            
-            elif (exp in TokensMapping.keywords):
-                self.current_token = exp
-                self.current_type = TokensMapping.token_type[1]
-                exp = ""
-            
-            elif (exp in TokensMapping.cons_int):
-                while (isinstance(self.current_line[self.current_loc_in_line + 1], int)):
-                    self.current_loc_in_line += 1
-                    exp += self.current_line[self.current_loc_in_line]
-                self.current_token = exp
-                self.current_type = TokensMapping.token_type[2]
-                exp = ""
 
-            elif (exp == "\""):
-                while (self.current_line[self.current_loc_in_line + 1] != "\""):
-                    self.current_loc_in_line += 1
-                    exp += self.current_line[self.current_loc_in_line]
-                self.current_loc_in_line += 1
-                self.current_token = exp
-                self.current_type = TokensMapping.token_type[3]
-                exp = ""
+        buffer = ""
+        self.current_token = None
 
-            else:
-                if (self.current_line[self.current_loc_in_line + 1] in [" ", "\n"]): # not anyone of the above so an identifier
-                    self.current_token = exp
-                    self.current_type = TokensMapping.token_type[4] 
-                    exp = ""
-                            
-    
-    # returns a clean line from a given Jack line
-    # returns None if no valid code
-    def clean_line(line):
-        if "//" in line:
-            line = line[:line.index("//")]
-        line = line.strip()  # cleaning any additional white space
-        return line
+        while self.current_token is None:
+            buffer += self.in_file.read(1)
+            if buffer in {" ", "\n"}:
+                buffer = ""
 
-    if __name__ == "__main__":
-        main()
+            if "//" in buffer:
+                while not buffer.endswith('\n'):
+                    buffer += self.in_file.read(1)
+                buffer = ""
+
+            if "/**" in buffer:
+                while not buffer.endswith('*/'):
+                    buffer += self.in_file.read(1)
+                buffer = buffer[:buffer.index("/**")]
+
+            if buffer in TokensMapping.symbols:
+                if buffer == "/":
+                    if self.in_file.read(1) in ("/", "*"):
+                        self.in_file.seek(self.in_file.tell() - 1)
+                        continue
+                self.current_token = buffer
+                self.current_type = TokenTypes.SYMBOL
+
+            if buffer in TokensMapping.keywords:
+                self.current_token = buffer
+                self.current_type = TokenTypes.KEYWORD
+
+            if buffer.startswith('"'):
+                while not buffer.endswith('"'):
+                    buffer += self.in_file.read(1)
+                self.current_token = buffer[1:-1]
+                self.current_type = TokenTypes.STRING
+
+            if buffer.isdigit():
+                while buffer.isdigit():
+                    buffer += self.in_file.read(1)
+
+                self.current_token = buffer[:-1]
+                self.in_file.seek(self.in_file.tell() - 1)
+                self.current_type = TokenTypes.INT
+
+            if len(buffer) > 1 and not (buffer[-1].isdigit() or buffer[-1].isalpha()):  # not anyone of the above so an identifier
+                self.in_file.seek(self.in_file.tell() - 1)
+                self.current_token = buffer[:-1]
+                self.current_type = TokenTypes.IDENTIFIER
+
+
+if __name__ == "__main__":
+    x = JackTokenaizer("./text.txt")
+    while True:
+        x.advance()
+        print(x.current_type)
+        print(x.current_token)
+        print("------------")
