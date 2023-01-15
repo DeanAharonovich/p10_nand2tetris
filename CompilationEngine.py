@@ -11,6 +11,13 @@ class CompilationEngine:
         xml += "</ifStatement>\n"
         return xml
 
+    def compile_while(self):
+        xml = "<whileStatement>\n"
+        xml += self.process("while") + self.process("(") + self.compile_expression() \
+            + self.process(")") + self.process("\{") + self.compile_statements() + self.process("\}")
+        xml += "</whileStatement>\n"
+        return xml
+
     def process(self ,str):
         if (str == self.current_token):
             xml = "<keyword> {} </keyword>\n".format(str)
