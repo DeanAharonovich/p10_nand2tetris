@@ -5,7 +5,7 @@ class TokensMapping:
                 "void", "true", "false", "null", "this", "let", "do", "if", "else", "while", "return"
                 }
 
-
+#comment
 class TokenTypes:
     SYMBOL = "SYMBOL"
     KEYWORD = "KEYWORD"
