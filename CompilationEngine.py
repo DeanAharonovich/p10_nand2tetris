@@ -1,12 +1,15 @@
 from JackTokenaizer import JackTokenaizer
 import re
+from TokensMapping import TokensMapping, TokenTypes
 
 class CompilationEngine:
     def __init__(self, input_file, output_file):
-        self.tokenaizer = JackTokenaizer(input_file)
+        self.input_file = input_file
+        self.tokenaizer = JackTokenaizer(self.input_file)
         self.output_file = open(output_file, "w")
     
     def compileClass(self):
+        self.tokenaizer.advance()
         xml = self.process("class")
         xml += self.process(self.tokenaizer.current_token) + self.process("{") \
             + self.compileClassVarDec()
@@ -26,20 +29,46 @@ class CompilationEngine:
         pass
 
     def compileVarDec(self):
-        pass
+        xml = "<varDec>\n"
+        xml += self.process("var") + self.process(self.tokenaizer.current_token) + self.process(self.tokenaizer.current_token)
+        while(self.tokenaizer.current_token == ','):
+            xml += self.process(",") \
+                + self.process(self.tokenaizer.current_token)
+        xml += self.process(";") + "\n</varDec>\n"
+        return xml
 
     def compileStatements(self):
-        pass
+        xml = "<statements>\n"
+        while (self.tokenaizer.current_type == TokenTypes.symbol):
+            if (self.tokenaizer.current_token == "let"):
+                xml += self.compileLet()
+            elif (self.tokenaizer.current_token == "if"):
+                xml += self.compileIf()
+            elif (self.tokenaizer.current_token == "while"):
+                xml += self.compileWhile()
+            elif (self.tokenaizer.current_token == "do"):
+                xml += self.compileDo()
+            elif (self.tokenaizer.current_token == "return"):
+                xml += self.compileReturn()
+        xml += "</statements>\n"
+        return xml
 
     def compileLet(self):
-        pass
+        xml = "<letStatement>\n"
+        xml += self.process("let") + self.process(self.tokenaizer.current_token) \
+            + self.process("=") + self.compileExpression() + self.process(";")
+        xml += "</letStatement>\n"
+        return xml
 
     def compileIf(self):
-        ifBlock = re.compile("(if) \(")
+        self.tokenaizer.advance()
         xml = "<ifStatement>\n"
-        xml += self.process("if") + self.process("(") + self.compileTerm() \
-            + self.process(")") + self.process("{") + self.compileStatements() + self.process("}")
-        xml += "</ifStatement>\n"
+        xml += self.process("if") \
+            + self.process("(") \
+            + self.compileTerm() \
+            + self.process(")") + self.process("{") \
+            + self.compileStatements() + self.process("}")
+        xml += "\n</ifStatement>\n"
         return xml
 
     def compileWhile(self):
@@ -47,7 +76,6 @@ class CompilationEngine:
         xml += self.process("while") + self.process("(") + self.compileTerm() \
             + self.process(")") + self.process("\{") + self.compileStatements() + self.process("\}")
         xml += "</whileStatement>\n"
-        self.output_file.write(xml)
         return xml
 
     def compileDo(self):
@@ -58,30 +86,59 @@ class CompilationEngine:
 
     def compileExpression(self):
         xml = "<Expression>\n"
-        xml += "<term>\n"
-        xml += self.process
+        xml += self.compileTerm() 
+        while (self.tokenaizer.current_type == TokenTypes.SYMBOL and \
+               self.tokenaizer.current_token in TokensMapping.op_list):
+               xml += self.process_op(self.tokenaizer.current_token) \
+                   + self.compileTerm()
+        xml += "\n</Expression>\n"
         return xml
 
-    def compileTerm(self):
-        xml = "<term> "
-        if (JackTokenaizer.tokenType == "INTCONST"):
+    def compileTerm(self): #bookmark
+        xml = "<term>\n"
+        if (self.tokenaizer.current_type == TokenTypes.INT):
             xml += "<intConst> {} </intConst>\n".format(self.tokenaizer.current_token)
-        elif (JackTokenaizer.tokenType == "IDENTIFIER"):
+        elif (self.tokenaizer.current_type == TokenTypes.KEYWORD):
+            xml += "<keyword> {} </keyword>\n".format(self.tokenaizer.current_token)
+        elif (self.tokenaizer.current_type == TokenTypes.STRING):
             xml += "<stringConst> {} </stringConst>\n".format(self.tokenaizer.current_token)
+        elif (self.tokenaizer.current_type == TokenTypes.IDENTIFIER):
+            if (self.tokenaizer.nextChar == " "):
+                xml += "<identifier> {} </identifier>\n".format(self.tokenaizer.current_token)
+            elif (self.tokenaizer.nextChar == "."):
+                pass
+            elif (self.tokenaizer.nextChar == "["):
+                pass
+            elif (self.tokenaizer.nextChar == "("):
+                pass
+            elif (self.tokenaizer.nextChar == " "):
+                pass
         else:
             xml = "SYNTAX ERROR"
             return xml
-        xml += " </term>\n"
+        xml += "</term>\n"
+        self.tokenaizer.advance()
         return xml
 
     def compileExpressionList(self):
         pass
     
-    def process(self ,str):
-        if (str == self.tokenaizer.current_token): #(self.tokenaizer.current_type == "SYMBOL") and
-            xml = "<keyword> {} </keyword>\n".format(str)
+    def process(self ,str): # need to be changed into different processes to each type.
+        if (str == self.tokenaizer.current_token):
+            if (self.tokenaizer.current_type == TokenTypes.SYMBOL):
+                xml = "<symbol> {} </symbol>\n".format(str)
+            elif (self.tokenaizer.current_type == TokenTypes.KEYWORD):
+                xml = "<keyword> {} </keyword>\n".format(str)
+            elif (self.tokenaizer.current_type == TokenTypes.IDENTIFIER):
+                xml = "<identifier> {} </identifier>\n".format(str)
+            elif (self.tokenaizer.current_type == TokenTypes.INT):
+                xml = "<intConst> {} </intConst>\n".format(str)
+            elif (self.tokenaizer.current_type == TokenTypes.STRING):
+                xml = "<stringConst> {} </stringConst>\n".format(str)
+            else:
+                xml = "ERROR - TOKEN IS NOT IN TOKEN'S LIST"
         else:
-            xml = "SYNTAX ERROR"
+            xml = "ERROR - SYNTAX ERROR"
         self.tokenaizer.advance()
         return xml
 
@@ -108,3 +165,16 @@ class CompilationEngine:
             xml = "SYNTAX ERROR"
         self.tokenaizer.advance()
         return xml"""
+
+    def process_op(self):
+        if (self.tokenaizer.current_type in TokensMapping.op_list):
+            xml = "<symbol> {} </symbol>\n".format(self.tokenaizer.current_token)
+        else:
+            xml = "SYNTAX ERROR"
+        self.tokenaizer.advance()
+        return xml
+
+if __name__ == "__main__":
+    x = CompilationEngine("checkIf.txt", "checkIf.xml")
+    xml = x.compileIf()
+    x.output_file.write(xml)

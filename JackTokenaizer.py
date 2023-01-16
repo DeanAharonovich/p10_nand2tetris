@@ -6,7 +6,6 @@ class JackTokenaizer:
         self.current_token = None
         self.current_type = None
         self.in_file = open(inputFile, "r")
-        self.current_loc_in_line = 0
 
     def advance(self):
         buffer = ""
@@ -64,12 +63,16 @@ class JackTokenaizer:
     def currentToken(self):
         return self.current_token
 
+    def nextChar(self):
+        nextChar = self.in_file.read(1)
+        self.in_file.seek(self.in_file.tell() - 1)
+        return nextChar
 
-if __name__ == "__main__":
-    x = JackTokenaizer("ExpressionLessSquare\Main.jack")
+"""if __name__ == "__main__":
+    x = JackTokenaizer("checkIf.txt")
     for i in range(50):
         x.advance()
         print(x.current_type)
         print(x.current_token)
         print("------------")
-    x.in_file.close()
+    x.in_file.close()"""
