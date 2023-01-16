@@ -9,7 +9,6 @@ class JackTokenaizer:
         self.current_loc_in_line = 0
 
     def advance(self):
-
         buffer = ""
         self.current_token = None
 
@@ -30,8 +29,8 @@ class JackTokenaizer:
 
             if buffer in TokensMapping.symbols:
                 if buffer == "/":
-                    if self.in_file.read(1) in ("/", "*"):
-                        self.in_file.seek(self.in_file.tell() - 1)
+                    #if self.in_file.read(1) in ("/", "*"):
+                        #self.in_file.seek(self.in_file.tell() - 1)
                         continue
                 self.current_token = buffer
                 self.current_type = TokenTypes.SYMBOL
@@ -58,12 +57,19 @@ class JackTokenaizer:
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
+    
+    def tokenType(self):
+        return self.tokenType
+
+    def currentToken(self):
+        return self.current_token
 
 
 if __name__ == "__main__":
-    x = JackTokenaizer("./text.txt")
-    while True:
+    x = JackTokenaizer("ExpressionLessSquare\Main.jack")
+    for i in range(50):
         x.advance()
         print(x.current_type)
         print(x.current_token)
         print("------------")
+    x.in_file.close()
