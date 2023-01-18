@@ -28,11 +28,11 @@ class JackTokenaizer:
 
             if buffer in TokensMapping.symbols:
                 if buffer == "/":
-                    next_char = self.in_file.read(1)
+                    next_char = self.nextChar()
+
                     if next_char in ("/", "*"):
                         buffer+=next_char
                         continue
-                    self.in_file.seek(self.in_file.tell() - 1)
                 self.current_token = buffer
                 self.current_type = TokenTypes.SYMBOL
                 break
@@ -51,10 +51,9 @@ class JackTokenaizer:
 
             if buffer.isdigit():
                 while buffer.isdigit():
-                    buffer += self.in_file.read(1)
+                    buffer += self.nextChar()
 
                 self.current_token = buffer[:-1]
-                self.in_file.seek(self.in_file.tell() - 1)
                 self.current_type = TokenTypes.INT
                 break
 
