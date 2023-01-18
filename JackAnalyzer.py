@@ -1,8 +1,7 @@
 from JackTokenaizer import JackTokenaizer
 
 
-
-def main(self):
+def main():
     tokenaizer = JackTokenaizer("Square.jack")
 
     tokenaizer.advance()
