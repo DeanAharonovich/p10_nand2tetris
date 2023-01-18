@@ -1,10 +1,14 @@
 from JackTokenaizer import JackTokenaizer
 
-class JackAnalyzer:
 
-    def main():
-        tokenaizer = JackTokenaizer(input_file)
 
-        tokenaizer.advance()
-        print("check")
-        print(tokenaizer.current_token)
+def main(self):
+    tokenaizer = JackTokenaizer("Square.jack")
+
+    tokenaizer.advance()
+    print("check")
+    print(tokenaizer.current_token)
+
+
+if __name__ == '__main__':
+    main()

@@ -3,6 +3,9 @@
 class Main {
     function void main() {
         var snakeGame game;
+        let x = 5/2;
+        lex y = 5 /2 
+        lex y = 5/ 2 
         let game = snakeGame.new();
         do game.run();
         do game.dispose();
