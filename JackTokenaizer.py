@@ -6,13 +6,17 @@ class JackTokenaizer:
         self.current_token = None
         self.current_type = None
         self.in_file = open(inputFile, "r")
-
+        self.next_char= self.in_file.read(1)
+        
     def advance(self):
         buffer = ""
         self.current_token = None
 
         while self.current_token is None:
-            buffer += self.in_file.read(1)
+            current_char= self.next_char
+            self.next_char= self.in_file.read(1)
+
+            buffer += current_char
             
             if buffer=="":
                 return 
@@ -22,20 +26,22 @@ class JackTokenaizer:
 
             if "//" in buffer:
                 while not buffer.endswith('\n'):
-                    buffer += self.in_file.read(1)
+                    buffer += self.next_char
+                    self.next_char = self.in_file.read(1)
                 buffer = ""
 
             if "/*" in buffer:
                 while not buffer.endswith('*/'):
-                    buffer += self.in_file.read(1)
+                    buffer += self.next_char
+                    self.next_char = self.in_file.read(1)
                 buffer = buffer[:buffer.index("/**")]
 
             if buffer in TokensMapping.symbols:
                 if buffer == "/":
-                    next_char = self.nextChar()
 
-                    if next_char in ("/", "*"):
-                        buffer += self.in_file.read(1)
+                    if self.next_char in ("/", "*"):
+                        buffer += self.next_char
+                        self.next_char = self.in_file.read(1)
                         continue
                 self.current_token = buffer
                 self.current_type = TokenTypes.SYMBOL
@@ -54,18 +60,17 @@ class JackTokenaizer:
                 break
 
             if buffer.isdigit():
-                while buffer.isdigit():
-                    buffer += self.in_file.read(1)
-                self.in_file.seek(self.in_file.tell() - 1)
+                while self.next_char.isdigit():
+                    buffer += self.next_char
+                    self.next_char = self.in_file.read(1)
 
-                self.current_token = buffer[:-1]
+                self.current_token = buffer
                 self.current_type = TokenTypes.INT
                 break
 
             # not anyone of the above so an identifier
-            if len(buffer) > 1 and not (buffer[-1].isdigit() or buffer[-1].isalpha() or buffer[-1] == "_"):
-                self.in_file.seek(self.in_file.tell() - 1)
-                self.current_token = buffer[:-1]
+            if len(buffer) > 0 and not (self.next_char.isdigit() or self.next_char.isalpha() or self.next_char == "_"):
+                self.current_token = buffer
                 self.current_type = TokenTypes.IDENTIFIER
                 break
 
@@ -76,14 +81,14 @@ class JackTokenaizer:
         return self.current_token
 
     def nextChar(self):
-        nextChar = self.in_file.read(1)
-        self.in_file.seek(self.in_file.tell() - 1)
-        return nextChar
+        return self.next_char
 
 
 if __name__ == "__main__":
-    x = JackTokenaizer("./Square.jack")
-    for i in range(50):
+    x = JackTokenaizer("./SquareGame.jack")
+    x.advance()
+
+    while x.current_token:
         x.advance()
         print(x.current_type)
         print(x.current_token)
