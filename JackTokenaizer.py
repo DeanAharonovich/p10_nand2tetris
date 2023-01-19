@@ -21,7 +21,7 @@ class JackTokenaizer:
             if buffer=="":
                 return 
             
-            if buffer in {" ", "\n"}:
+            if buffer in {" ", "\n", "\t"}:
                 buffer = ""
 
             if "//" in buffer:
@@ -53,8 +53,11 @@ class JackTokenaizer:
                 break
 
             if buffer.startswith('"'):
-                while not buffer.endswith('"'):
-                    buffer += self.in_file.read(1)
+                while not self.next_char =='"':
+                    buffer += self.next_char
+                    self.next_char = self.in_file.read(1)
+                buffer += self.next_char
+                self.next_char = self.in_file.read(1)
                 self.current_token = buffer[1:-1]
                 self.current_type = TokenTypes.STRING
                 break

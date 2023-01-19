@@ -15,3 +15,11 @@ class TokenTypes:
     INT = "INTCONST"
     STRING = "STRING"
     IDENTIFIER = "IDENTIFIER"
+
+
+xml_escaping = {
+    "<" : "&lt;",
+    ">" : "&gt;",
+    '"' : "&qout;",
+    "&" : "&amp;",
+}
