@@ -4,10 +4,9 @@ from TokensMapping import TokensMapping, TokenTypes
 
 # create XML 
 class CompilationEngine:
-    def __init__(self, input_file, output_file):
+    def __init__(self, input_file):
         self.input_file = input_file
         self.tokenizer = JackTokenaizer(self.input_file)
-        self.output_file = open(output_file, "w")
 
     def compile_class(self):
         xml = "<class>\n"
@@ -253,7 +252,4 @@ class CompilationEngine:
         return xml
 
 
-if __name__ == "__main__":
-    x = CompilationEngine("squareGame.jack", "checkIf.xml")
-    xml = x.compile_class()
-    x.output_file.write(xml)
+
