@@ -13,6 +13,10 @@ class JackTokenaizer:
 
         while self.current_token is None:
             buffer += self.in_file.read(1)
+            
+            if buffer=="":
+                return 
+            
             if buffer in {" ", "\n"}:
                 buffer = ""
 
@@ -31,7 +35,7 @@ class JackTokenaizer:
                     next_char = self.nextChar()
 
                     if next_char in ("/", "*"):
-                        buffer += next_char
+                        buffer += self.in_file.read(1)
                         continue
                 self.current_token = buffer
                 self.current_type = TokenTypes.SYMBOL
@@ -51,14 +55,15 @@ class JackTokenaizer:
 
             if buffer.isdigit():
                 while buffer.isdigit():
-                    buffer += self.nextChar()
+                    buffer += self.in_file.read(1)
+                self.in_file.seek(self.in_file.tell() - 1)
 
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.INT
                 break
 
-            if len(buffer) > 1 and not (
-                    buffer[-1].isdigit() or buffer[-1].isalpha()):  # not anyone of the above so an identifier
+            # not anyone of the above so an identifier
+            if len(buffer) > 1 and not (buffer[-1].isdigit() or buffer[-1].isalpha() or buffer[-1] == "_"):
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
