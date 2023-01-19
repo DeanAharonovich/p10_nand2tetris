@@ -31,7 +31,7 @@ class JackTokenaizer:
                     next_char = self.nextChar()
 
                     if next_char in ("/", "*"):
-                        buffer+=next_char
+                        buffer += next_char
                         continue
                 self.current_token = buffer
                 self.current_type = TokenTypes.SYMBOL
@@ -57,11 +57,13 @@ class JackTokenaizer:
                 self.current_type = TokenTypes.INT
                 break
 
-            if len(buffer) > 1 and not (buffer[-1].isdigit() or buffer[-1].isalpha()):  # not anyone of the above so an identifier
+            if len(buffer) > 1 and not (
+                    buffer[-1].isdigit() or buffer[-1].isalpha()):  # not anyone of the above so an identifier
                 self.in_file.seek(self.in_file.tell() - 1)
                 self.current_token = buffer[:-1]
                 self.current_type = TokenTypes.IDENTIFIER
                 break
+
     def tokenType(self):
         return self.tokenType
 
@@ -72,6 +74,7 @@ class JackTokenaizer:
         nextChar = self.in_file.read(1)
         self.in_file.seek(self.in_file.tell() - 1)
         return nextChar
+
 
 if __name__ == "__main__":
     x = JackTokenaizer("./Square.jack")
