@@ -1,8 +1,9 @@
 import os
 import sys
+from xml.etree import ElementTree
 
 from CompilationEngine import CompilationEngine
-from JackTokenaizer import JackTokenaizer
+from vmWriter import vmWriter
 
 
 def get_jack_file_list(file_path):
@@ -18,11 +19,24 @@ def get_jack_file_list(file_path):
 
 def get_output_file_name(file_path, file):
     if os.path.isdir(file_path):
-        return os.path.join(file_path, file[:-4]) + "xml"
+        return os.path.join(file_path, file[:-4])
     else:
-        file_name = file_path[:-2]
-        return file_name + "xml"
+        file_name = file_path[:-4]
+        return file_name
 
+
+def output_xml(output_file, class_element):
+    with open(output_file, "w") as out_file:
+        tree = ElementTree.ElementTree(class_element)
+        ElementTree.indent(tree, '  ')
+        xmlstr = ElementTree.tostring(class_element, encoding='utf8', method='html').decode("utf8")
+        xmlstr = xmlstr.replace("></", ">\n</")
+        out_file.write(xmlstr)
+
+def output_vm(output_file, class_element):
+    with open(output_file, "w") as out_file:
+        vmWriter(out_file).write_tree(class_element)
+        
 
 def main():
     file_path = sys.argv[1]
@@ -30,10 +44,9 @@ def main():
 
     for file in files:
         output_file = get_output_file_name(file_path, file)
-        with open(output_file, "w") as out_file:
-            xml = CompilationEngine(file).compile_class()
-            out_file.write(xml)
-
+        class_element = CompilationEngine(file).compile_class()
+        output_xml(output_file + "xml", class_element)
+        output_vm(output_file+ "vm", class_element)
         
 
 if __name__ == "__main__":

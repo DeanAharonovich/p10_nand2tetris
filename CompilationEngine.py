@@ -1,265 +1,287 @@
+from xml.etree.ElementTree import Element
+
 from JackTokenaizer import JackTokenaizer
-from TokensMapping import TokensMapping, TokenTypes, xml_escaping
+from TokensMapping import TokensMapping, TokenTypes, LabelTypes
 
 
-# create XML 
 class CompilationEngine:
     def __init__(self, input_file):
         self.input_file = input_file
         self.tokenizer = JackTokenaizer(self.input_file)
 
     def compile_class(self):
-        xml = "<class>\n"
+        class_element = Element('class')
+
         self.tokenizer.advance()
-        xml += self.process_keyword()
-        xml += self.process_identifier() + self.process_symbol()
+        class_element.append(self.process_keyword())
+        class_element.append(self.process_identifier())
+        class_element.append(self.process_symbol())
+
         while self.tokenizer.current_token in ("static", "field"):
-            xml += self.compileClassVarDec()
+            class_element.append(self.compile_var_dec_generic(LabelTypes.CLASS_VAR_DEC))
         while self.tokenizer.current_token in ("constructor", "function", "method"):
-            xml += self.compileSubroutine()
-        xml += self.process_symbol()
+            class_element.append(self.compile_subroutine())
 
-        xml += "</class>\n"
-        return xml
+        class_element.append(self.process_symbol())
 
-    def compileClassVarDec(self):
-        xml = "<classVarDec>\n"
-        xml += self.process_keyword()
+        return class_element
+
+    def compile_var_dec_generic(self, var_dec_type):
+        var_dec_element = Element(var_dec_type)
+        var_dec_element.append(self.process_keyword())
+
         if self.tokenizer.current_type == TokenTypes.KEYWORD:
-            xml += self.process_keyword()
+            var_dec_element.append(self.process_keyword())
         else:
-            xml += self.process_identifier()
+            var_dec_element.append(self.process_identifier())
 
-        xml += self.process_identifier()
-        while (self.tokenizer.current_token == ','):
-            xml += self.process_symbol() + self.process_identifier()
-        xml += self.process_symbol()  # ';'
-        xml += "</classVarDec>\n"
-        return xml
+        var_dec_element.append(self.process_identifier())
 
-    def compileSubroutine(self):
-        xml = "<subroutineDec>\n"
-        xml += self.process_keyword()
+        while self.tokenizer.current_token == ',':
+            var_dec_element.append(self.process_symbol())
+            var_dec_element.append(self.process_identifier())
+
+        var_dec_element.append(self.process_symbol())
+        return var_dec_element
+
+    def compile_subroutine(self):
+        subroutine_element = Element(LabelTypes.SUBROUTINE_DEC)
+        subroutine_element.append(self.process_keyword())
+
         if self.tokenizer.current_type == TokenTypes.KEYWORD:
-            xml += self.process_keyword()
+            subroutine_element.append(self.process_keyword())
         elif self.tokenizer.current_type == TokenTypes.IDENTIFIER:
-            xml += self.process_identifier()
-        xml += self.process_identifier() + self.process_symbol() \
-               + self.compileParameterList() \
-               + self.process_symbol() \
-               + self.compileSubroutineBody() \
-               + "</subroutineDec>\n"
-        return xml
+            subroutine_element.append(self.process_identifier())
 
-    def compileParameterList(self):
-        xml = "<parameterList>\n"
-        while (self.tokenizer.current_token != ')'):
-            if (self.tokenizer.current_type == TokenTypes.KEYWORD):
-                xml += self.process_keyword()
-            elif (self.tokenizer.current_type == TokenTypes.IDENTIFIER):
-                xml += self.process_identifier()
-            xml += self.process_identifier()
-            if (self.tokenizer.current_token == ','):
-                xml += self.process_symbol()
-        xml += "</parameterList>\n"
-        return xml
+        subroutine_element.append(self.process_identifier())
+        subroutine_element.append(self.process_symbol())
+        subroutine_element.append(self.compile_parameter_list())
+        subroutine_element.append(self.process_symbol())
+        subroutine_element.append(self.compile_subroutine_body())
+        return subroutine_element
 
-    def compileSubroutineBody(self):
-        xml = "<subroutineBody>\n"
-        xml += self.process_symbol()
+    def compile_parameter_list(self):
+        param_list_element = Element(LabelTypes.PARAMETER_LIST)
+
+        while self.tokenizer.current_token != ')':
+            if self.tokenizer.current_type == TokenTypes.KEYWORD:
+                param_list_element.append(self.process_keyword())
+            elif self.tokenizer.current_type == TokenTypes.IDENTIFIER:
+                param_list_element.append(self.process_identifier())
+            param_list_element.append(self.process_identifier())
+            if self.tokenizer.current_token == ',':
+                param_list_element.append(self.process_symbol())
+        return param_list_element
+
+    def compile_subroutine_body(self):
+        sub_body_element = Element(LabelTypes.SUBROUTINE_BODY)
+        sub_body_element.append(self.process_symbol())
         while self.tokenizer.current_token == "var":
-            xml += self.compileVarDec()
-        xml += self.compileStatements() + self.process_symbol() + "</subroutineBody>\n"
-        return xml
+            sub_body_element.append(self.compile_var_dec_generic(LabelTypes.VAR_DEC))
+        sub_body_element.append(self.compile_statements())
+        sub_body_element.append(self.process_symbol())
+        return sub_body_element
 
-    def compileVarDec(self):
-        xml = "<varDec>\n"
-        xml += self.process_keyword()
-        if self.tokenizer.current_type == TokenTypes.KEYWORD:
-            xml += self.process_keyword()
-        else:
-            xml += self.process_identifier()
+    def compile_statements(self):
+        statements_element = Element(LabelTypes.STATEMENTS)
 
-        xml += self.process_identifier()
-        while (self.tokenizer.current_token == ','):
-            xml += self.process_symbol() + self.process_identifier()
-        xml += self.process_symbol() + "</varDec>\n"
-        return xml
-
-    def compileStatements(self):
-        xml = "<statements>\n"
         while self.tokenizer.current_type == TokenTypes.KEYWORD:
             if self.tokenizer.current_token == "let":
-                xml += self.compileLet()
+                statements_element.append(self.compile_let())
             elif self.tokenizer.current_token == "if":
-                xml += self.compileIf()
+                statements_element.append(self.compile_if())
             elif self.tokenizer.current_token == "while":
-                xml += self.compileWhile()
+                statements_element.append(self.compile_while())
             elif self.tokenizer.current_token == "do":
-                xml += self.compileDo()
+                statements_element.append(self.compile_do())
             elif self.tokenizer.current_token == "return":
-                xml += self.compileReturn()
-            elif self.tokenizer.current_token == "else":
-                xml += self.compileElse()
-        xml += "</statements>\n"
-        return xml
+                statements_element.append(self.compile_return())
+        return statements_element
 
-    def compileLet(self):
-        xml = "<letStatement>\n"
-        xml += self.process_keyword() + self.process_identifier()
+    def compile_let(self):
+        let_element = Element(LabelTypes.LET_STATEMENT)
+        let_element.append(self.process_keyword())
+        let_element.append(self.process_identifier())
         if self.tokenizer.current_token == "[":
-            xml += self.process_symbol() + self.compileExpression() + self.process_symbol()
-        xml += self.process_op() + self.compileExpression() + self.process_symbol()
-        xml += "</letStatement>\n"
-        return xml
+            let_element.append(self.process_symbol())
+            let_element.append(self.compile_expression())
+            let_element.append(self.process_symbol())
+        let_element.append(self.process_op())
+        let_element.append(self.compile_expression())
+        let_element.append(self.process_symbol())
+        return let_element
 
-    def compileIf(self):
-        xml = "<ifStatement>\n"
-        xml += self.process_keyword() + self.process_symbol() \
-               + self.compileExpression() \
-               + self.process_symbol() + self.process_symbol()  # if (expression){
-        xml += self.compileStatements() + self.process_symbol()
-        if (self.tokenizer.current_token == "else"):
-            xml += self.process_keyword() + self.process_symbol() + self.compileStatements() \
-                + self.process_symbol()
-        xml += "</ifStatement>\n"
-        return xml
+    def compile_if(self):
+        if_element = Element(LabelTypes.IF_STATEMENT)
+        if_element.append(self.process_keyword())
+        if_element.append(self.process_symbol())
+        if_element.append(self.compile_expression())
+        if_element.append(self.process_symbol())
+        if_element.append(self.process_symbol())
+        if_element.append(self.compile_statements())
+        if_element.append(self.process_symbol())
 
-    def compileWhile(self):
-        xml = "<whileStatement>\n"
-        xml += self.process_keyword() + self.process_symbol() \
-               + self.compileExpression() \
-               + self.process_symbol() + self.process_symbol()  # while (expression){
-        xml += self.compileStatements() + self.process_symbol()
-        xml += "</whileStatement>\n"
-        return xml
+        if self.tokenizer.current_token == "else":
+            if_element.append(self.process_keyword())
+            if_element.append(self.process_symbol())
+            if_element.append(self.compile_statements())
+            if_element.append(self.process_symbol())
 
-    def compileDo(self):
-        xml = "<doStatement>\n"
-        xml += self.process_keyword()
-        if (self.tokenizer.nextChar() == "."):
-            xml += self.process_identifier() + self.process_symbol() \
-                   + self.process_identifier() + self.process_symbol() \
-                   + self.compileExpressionList() + self.process_symbol()
-        elif (self.tokenizer.nextChar() == "("):
-            xml += self.process_identifier() + self.process_symbol() \
-                   + self.compileExpressionList() + self.process_symbol()
+        return if_element
+
+    def compile_while(self):
+        while_element = Element(LabelTypes.WHILES_TATEMENT)
+        while_element.append(self.process_keyword())
+        while_element.append(self.process_symbol())
+        while_element.append(self.compile_expression())
+        while_element.append(self.process_symbol())
+        while_element.append(self.process_symbol())
+        while_element.append(self.compile_statements())
+        while_element.append(self.process_symbol())
+        return while_element
+
+    def compile_do(self):
+        do_element = Element(LabelTypes.DO_STATEMENT)
+        do_element.append(self.process_keyword())
+
+        if self.tokenizer.nextChar() == ".":
+            do_element.append(self.process_identifier())
+            do_element.append(self.process_symbol())
+            do_element.append(self.process_identifier())
+            do_element.append(self.process_symbol())
+            do_element.append(self.compile_expression_list())
+            do_element.append(self.process_symbol())
+
+        elif self.tokenizer.nextChar() == "(":
+            do_element.append(self.process_identifier())
+            do_element.append(self.process_symbol())
+            do_element.append(self.compile_expression_list())
+            do_element.append(self.process_symbol())
+
         else:
-            xml = "SYNTAX ERROR\n"
-        xml += self.process_symbol()
-        xml += "</doStatement>\n"
-        return xml
+            raise Exception("Excpected {}, got {} instead".format("'.' or '('", self.tokenizer.nextChar()))
 
-    def compileReturn(self):
-        xml = "<returnStatement>\n"
-        xml += self.process_keyword()
+        do_element.append(self.process_symbol())
+        return do_element
+
+    def compile_return(self):
+        return_element = Element(LabelTypes.RETURN_STATEMENT)
+        return_element.append(self.process_keyword())
+
         if self.tokenizer.current_token != ";":
-            xml += self.compileExpression()
-        xml += self.process_symbol()
-        xml += "</returnStatement>\n"
-        return xml
+            return_element.append(self.compile_expression())
+        return_element.append(self.process_symbol())
+        return return_element
 
-    def compileExpression(self):
-        xml = "<expression>\n"
-        xml += self.compileTerm()
-        while (self.tokenizer.current_token in TokensMapping.op_list):
-            xml += self.process_op() + self.compileTerm()
-        xml += "</expression>\n"
-        return xml
+    def compile_expression(self):
+        expression_element = Element(LabelTypes.EXPRESSION)
+        expression_element.append(self.compile_term())
+        while self.tokenizer.current_token in TokensMapping.op_list:
+            expression_element.append(self.process_op())
+            expression_element.append(self.compile_term())
+        return expression_element
 
-    def compileTerm(self):  # bookmark 
-        xml = "<term>\n"
-        if (self.tokenizer.current_type == TokenTypes.INT):
-            xml += self.process_int()
-        elif (self.tokenizer.current_type == TokenTypes.KEYWORD):
-            xml += self.process_keyword()
-        elif (self.tokenizer.current_type == TokenTypes.STRING):
-            xml += self.process_string()
-        elif (self.tokenizer.current_type == TokenTypes.IDENTIFIER):
-            if (self.tokenizer.nextChar() in [" ", ")", "]", ";",","]):
-                xml += self.process_identifier()
-            elif (self.tokenizer.nextChar() == "."):
-                xml += self.process_identifier() + self.process_symbol() \
-                       + self.process_identifier() + self.process_symbol() \
-                       + self.compileExpressionList() + self.process_symbol()
-            elif (self.tokenizer.nextChar() == "["):
-                xml += self.process_identifier() + self.process_symbol() + self.compileExpression() + self.process_symbol()
-            elif (self.tokenizer.nextChar() == "("):
-                xml += self.process_identifier() + self.process_symbol() \
-                       + self.compileExpressionList() + self.process_symbol()
+    def compile_term(self):
+        term_element = Element(LabelTypes.TERM)
+        if self.tokenizer.current_type == TokenTypes.INT:
+            term_element.append(self.process_int())
+        elif self.tokenizer.current_type == TokenTypes.KEYWORD:
+            term_element.append(self.process_keyword())
+        elif self.tokenizer.current_type == TokenTypes.STRING:
+            term_element.append(self.process_string())
+        elif self.tokenizer.current_type == TokenTypes.IDENTIFIER:
+            if self.tokenizer.nextChar() in [" ", ")", "]", ";", "," ,"="]:
+                term_element.append(self.process_identifier())
+            elif self.tokenizer.nextChar() == ".":
+                term_element.append(self.process_identifier())
+                term_element.append(self.process_symbol())
+                term_element.append(self.process_identifier())
+                term_element.append(self.process_symbol())
+                term_element.append(self.compile_expression_list())
+                term_element.append(self.process_symbol())
+
+            elif self.tokenizer.nextChar() in ["[", "("]:
+                term_element.append(self.process_identifier())
+                term_element.append(self.process_symbol())
+                term_element.append(self.compile_expression())
+                term_element.append(self.process_symbol())
             else:
-                xml = "SYNTAX ERROR\n"
+                raise Exception(
+                    "Excpected {}, got {} instead".format(["(,[, ' ', ), ] ; ,"], self.tokenizer.nextChar()))
         elif self.tokenizer.current_type == TokenTypes.SYMBOL:
             if self.tokenizer.current_token in ("-", "~"):
-                xml += self.process_symbol()
-                xml += self.compileTerm()
+                term_element.append(self.process_symbol())
+                term_element.append(self.compile_term())
             if self.tokenizer.current_token == "(":
-                xml += self.process_symbol() + self.compileExpression() + self.process_symbol()
-
-
+                term_element.append(self.process_symbol())
+                term_element.append(self.compile_expression())
+                term_element.append(self.process_symbol())
 
         else:
-            xml = "SYNTAX ERROR\n"
-            return xml
-        xml += "</term>\n"
-        return xml
+            raise Exception("invalid symbol type : {}".format(self.tokenizer.current_type))
 
-    def compileExpressionList(self):
-        xml = "<expressionList>\n"
+        return term_element
+
+    def compile_expression_list(self):
+        expression_list_element = Element(LabelTypes.EXPRESSION_LIST)
         if self.tokenizer.current_token != ")":
-            xml += self.compileExpression()
-            while (self.tokenizer.current_token == ','):
-                xml += self.process_symbol() + self.compileExpression()
-        xml += "</expressionList>\n"
-        return xml
+            expression_list_element.append(self.compile_expression())
+            while self.tokenizer.current_token == ',':
+                expression_list_element.append(self.process_symbol())
+                expression_list_element.append(self.compile_expression())
+        return expression_list_element
 
-    def process_symbol(self):  # need to be changed into different processes to each type.
-        if (self.tokenizer.current_type == TokenTypes.SYMBOL):
-            escaped = xml_escaping.get(self.tokenizer.current_token, self.tokenizer.current_token)
-            xml = "<symbol> {} </symbol>\n".format(escaped)
+    def process_symbol(self):
+        if self.tokenizer.current_type == TokenTypes.SYMBOL:
+            element = Element(LabelTypes.SYMBOL)
+            element.text = self.tokenizer.current_token
+            self.tokenizer.advance()
+            return element
         else:
-            xml = "SYNTAX ERROR\n"
-        self.tokenizer.advance()
-        return xml
+            raise Exception("Expected {}, got {} instead".format(TokenTypes.SYMBOL, self.tokenizer.current_type))
 
     def process_keyword(self):
-        if (self.tokenizer.current_type == TokenTypes.KEYWORD):
-            xml = "<keyword> {} </keyword>\n".format(self.tokenizer.current_token)
+        if self.tokenizer.current_type == TokenTypes.KEYWORD:
+            element = Element(LabelTypes.KEYWORD)
+            element.text = self.tokenizer.current_token
+            self.tokenizer.advance()
+            return element
         else:
-            xml = "SYNTAX ERROR\n"
-        self.tokenizer.advance()
-        return xml
+            raise Exception("Expected {}, got {} instead".format(TokenTypes.KEYWORD, self.tokenizer.current_type))
 
     def process_identifier(self):
-        if (self.tokenizer.current_type == TokenTypes.IDENTIFIER):
-            xml = "<identifier> {} </identifier>\n".format(self.tokenizer.current_token)
+        if self.tokenizer.current_type == TokenTypes.IDENTIFIER:
+            element = Element(LabelTypes.IDENTIFIER)
+            element.text = self.tokenizer.current_token
+            self.tokenizer.advance()
+            return element
         else:
-            xml = "SYNTAX ERROR\n"
-        self.tokenizer.advance()
-        return xml
+            raise Exception("Expected {}, got {} instead".format(TokenTypes.IDENTIFIER, self.tokenizer.current_type))
 
     def process_string(self):
-        if (self.tokenizer.current_type == TokenTypes.STRING):
-            xml = "<stringConstant> {} </stringConstant>\n".format(self.tokenizer.current_token)
+        if self.tokenizer.current_type == TokenTypes.STRING:
+            element = Element(LabelTypes.STRING_CONSTANT)
+            element.text = self.tokenizer.current_token
+            self.tokenizer.advance()
+            return element
         else:
-            raise Exception("Excpected {}, got {} instead".format(TokenTypes.STRING,
-                                                                  self.tokenizer.current_type))  # todo consolidate
-        self.tokenizer.advance()
-        return xml
+            raise Exception("Expected {}, got {} instead".format(TokenTypes.STRING, self.tokenizer.current_type))
 
     def process_int(self):
-        if (self.tokenizer.current_type == TokenTypes.INT):
-            xml = "<integerConstant> {} </integerConstant>\n".format(self.tokenizer.current_token)
+        if self.tokenizer.current_type == TokenTypes.INT:
+            element = Element(LabelTypes.INTEGER_CONSTANT)
+            element.text = self.tokenizer.current_token
+            self.tokenizer.advance()
+            return element
         else:
-            xml = "SYNTAX ERROR\n"
-        self.tokenizer.advance()
-        return xml
+            raise Exception("Expected {}, got {} instead".format(TokenTypes.INT, self.tokenizer.current_type))
 
     def process_op(self):
-        if (self.tokenizer.current_token in TokensMapping.op_list):
-            escaped = xml_escaping.get(self.tokenizer.current_token, self.tokenizer.current_token)
-            xml = "<symbol> {} </symbol>\n".format(escaped)
+        if self.tokenizer.current_token in TokensMapping.op_list:
+            element = Element(LabelTypes.SYMBOL)
+            element.text = self.tokenizer.current_token
+            self.tokenizer.advance()
+            return element
         else:
-            xml = "SYNTAX ERROR\n"
-        self.tokenizer.advance()
-        return xml
+            raise Exception(
+                "Expected one of {}, got {} instead".format(TokensMapping.op_list, self.tokenizer.current_token))

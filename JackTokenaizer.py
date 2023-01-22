@@ -77,12 +77,6 @@ class JackTokenaizer:
                 self.current_type = TokenTypes.IDENTIFIER
                 break
 
-    def tokenType(self):
-        return self.tokenType
-
-    def currentToken(self):
-        return self.current_token
-
     def nextChar(self):
         return self.next_char
 
