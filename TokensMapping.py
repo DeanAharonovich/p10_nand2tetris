@@ -26,7 +26,7 @@ class LabelTypes:
     STATEMENTS = "statements"
     LET_STATEMENT = "letStatement"
     IF_STATEMENT = "ifStatement"
-    WHILES_TATEMENT = "whileStatement"
+    WHILE_STATEMENT = "whileStatement"
     DO_STATEMENT = "doStatement"
     RETURN_STATEMENT = "returnStatement"
     EXPRESSION = "expression"

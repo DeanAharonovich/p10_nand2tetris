@@ -13,6 +13,8 @@ class SymbolTable:
         self.local_index = 0
         self.static_index = 0
         self.field_index = 0
+        self.class_name = None
+        self.methods = set()
 
     # def reset(self):
     #     self.subroutine_var_dec = []
@@ -25,18 +27,18 @@ class SymbolTable:
     def define(self, name, type, kind):
         if kind == SymbolTable.ARG or kind == SymbolTable.LOCAL:
             if kind == SymbolTable.ARG:
-                self.argument_index += 1
                 self.subroutine_var_dec[name] = {"type": type, "kind": kind, "index": self.argument_index}
+                self.argument_index += 1
             if kind == SymbolTable.LOCAL:
-                self.local_index += 1
                 self.subroutine_var_dec[name] = {"type": type, "kind": kind, "index": self.local_index}
+                self.local_index += 1
         else:
             if kind == SymbolTable.STATIC:
+                self.class_var_dec[name] = {"type": type, "kind": "constant", "index": self.static_index}
                 self.static_index += 1
-                self.class_var_dec[name] = {"type": type, "kind": kind, "index": self.static_index}
             if kind == SymbolTable.FIELD:
+                self.class_var_dec[name] = {"type": type, "kind": "this", "index": self.field_index}
                 self.field_index += 1
-                self.class_var_dec[name] = {"type": type, "kind": kind, "index": self.static_index}
 
     def var_count(self, kind):
         return getattr(self, "{}_index".format(kind))

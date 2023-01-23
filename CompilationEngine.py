@@ -130,7 +130,7 @@ class CompilationEngine:
         return if_element
 
     def compile_while(self):
-        while_element = Element(LabelTypes.WHILES_TATEMENT)
+        while_element = Element(LabelTypes.WHILE_STATEMENT)
         while_element.append(self.process_keyword())
         while_element.append(self.process_symbol())
         while_element.append(self.compile_expression())
