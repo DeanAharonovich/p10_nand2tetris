@@ -33,10 +33,11 @@ def output_xml(output_file, class_element):
         xmlstr = xmlstr.replace("></", ">\n</")
         out_file.write(xmlstr)
 
+
 def output_vm(output_file, class_element):
     with open(output_file, "w") as out_file:
         vmWriter(out_file).write_tree(class_element)
-        
+
 
 def main():
     file_path = sys.argv[1]
@@ -45,9 +46,9 @@ def main():
     for file in files:
         output_file = get_output_file_name(file_path, file)
         class_element = CompilationEngine(file).compile_class()
-        output_xml(output_file + "_p11_xml", class_element)
-        output_vm(output_file+ "_p11_vm", class_element)
-        
+        output_xml(output_file + "xml", class_element)
+        output_vm(output_file + "vm", class_element)
+
 
 if __name__ == "__main__":
     main()

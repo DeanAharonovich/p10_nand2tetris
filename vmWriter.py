@@ -110,8 +110,8 @@ class vmWriter:
 
             elif child.tag == LabelTypes.IDENTIFIER:
                 value = self.symbol_table.get_var(children[0].text)
+                self.symbol_table.get_var(children[0].text)
                 self.write_push(value["kind"], value["index"])
-        
 
             elif child.tag == LabelTypes.KEYWORD:
                 if child.text == "null" or child.text == "false":
@@ -124,8 +124,8 @@ class vmWriter:
 
         elif len(children) == 2:
             self.compile_term(children[1])
-            child =element[0]
-            if child.text == '~' or child.text == '-':  
+            child = element[0]
+            if child.text == '~' or child.text == '-':
                 self.process_op(child.text)
         elif len(children) == 3:
             self.compile_expression(children[1])
@@ -153,7 +153,7 @@ class vmWriter:
             self.compile_expression_list(expression_list)
             arg_count = (len(expression_list) + 1) // 2
             if function.text != "new" and value is not None:
-                arg_count+=1
+                arg_count += 1
             self.write_call(func_cal, arg_count)
 
     def compile_expression(self, element):
@@ -222,11 +222,10 @@ class vmWriter:
         param_count = len(list(param_list))
         if param_count:
             self.compile_arguments(param_list)
-        vars= [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
+        vars = [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
         self.write_function(self.symbol_table.class_name, func_name.text, len(vars))
-        if return_type.text == "void":
-            self.write_push("argument", 0)
-            self.write_pop("pointer", 0)
+        self.write_push("argument", 0)
+        self.write_pop("pointer", 0)
         for var_dec in vars:
             self.compile_vars(var_dec)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
@@ -296,7 +295,7 @@ class vmWriter:
                 arg_count += 1
             self.compile_expression_list(expression_list)
             self.write_push("pointer", 0)
-            self.write_call(self.symbol_table.class_name + '.' + function.text, arg_count+1)
+            self.write_call(self.symbol_table.class_name + '.' + function.text, arg_count + 1)
         else:
             raise Exception("compilation error")
 
@@ -348,10 +347,10 @@ class vmWriter:
         self.symbol_table.if_counter += 1
 
     def compile_arguments(self, element):
-        for i in range((len(element) - 1) // 3):
+        for i in range(((len(element) - 1) // 3) +1):
             type = element[i * 3]
             name = element[(i * 3) + 1]
-            self.symbol_table.define(name, type, "argument")
+            self.symbol_table.define(name.text, type.text, "argument")
 
     def compile_expression_list(self, expression_list_element):
         for element in expression_list_element:
