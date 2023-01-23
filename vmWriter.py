@@ -110,30 +110,30 @@ class vmWriter:
             elif child.tag == LabelTypes.STRING_CONSTANT:
                 self.handle_str(child)
 
-            elif element.tag == LabelTypes.IDENTIFIER:
+            elif child.tag == LabelTypes.IDENTIFIER:
                 value = self.symbol_table.get_var(children[0].text)
                 self.write_push(value["kind"], value["index"])
 
-            elif element.tag == LabelTypes.KEYWORD:
-                if element.text == "null" or element.text == "false":
+            elif child.tag == LabelTypes.KEYWORD:
+                if child.text == "null" or child.text == "false":
                     self.write_push("constant", 0)
-                elif element.text == "this":
+                elif child.text == "this":
                     self.write_push("pointer", 0)
-                elif element.text == "true":
+                elif child.text == "true":
                     self.write_push("constant", 0)
                     self.process_op('~')
 
         elif len(children) == 2:
             self.compile_term(children[1])
-            if element.text == '~' or element.text == '-':
+            if element.text == '~' or element.text == '-': # todo - change element.text to child.text
                 self.process_op(element.text)
         elif len(children) == 3:
             self.compile_expression(children[1])
         elif len(children) == 4:
             value = self.symbol_table.get_var(children[0].text)
-            self.write_push(value["kind"], value["index"])
+            # self.write_push(value["kind"], value["index"]) // this push is also dealed in compile_arr
             if children[1].text == "[":
-                self.compile_arr(children[0].text,children[2])
+                self.compile_arr(children[0].text, children[2])
             else:
                 self.compile_expression(children[2])
         elif len(children) == 6:
@@ -232,9 +232,9 @@ class vmWriter:
         param_count = len(list(param_list))
         if param_count:
             self.compile_arguments(param_list)
-        self.write_function(self.symbol_table.class_name, func_name.text, param_count)
         for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]:
             self.compile_vars(var_dec)
+        self.write_function(self.symbol_table.class_name, func_name.text, self.symbol_table.local_index)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
             self.compile_statement(statement)
@@ -348,10 +348,15 @@ class vmWriter:
 
     def compile_arr(self, arr_name, indice_element, expression=None):
         row = self.symbol_table.get_var(arr_name)
-        self.write_push(row["kind"], row["index"])
         self.compile_expression(indice_element)
+        self.write_push(row["kind"], row["index"])
         self.process_op('+')
-        self.write_pop("pointer", 1)
-        self.write_push("that", 0)
         if expression:
             self.compile_expression(expression)
+            self.write_pop("temp", 0)
+            self.write_pop("pointer", 1)
+            self.write_push("temp", 0)
+            self.write_pop("that", 0)
+        else:
+            self.write_pop("pointer", 1)
+            self.write_push("that", 0)
