@@ -39,7 +39,11 @@ class SymbolTable:
             if kind == SymbolTable.FIELD:
                 self.class_var_dec[name] = {"type": type, "kind": "this", "index": self.field_index}
                 self.field_index += 1
-
+    def reset_subroutine(self):
+        self.subroutine_var_dec = {}
+        self.argument_index = 0 
+        self.local_index = 0 
+        
     def var_count(self, kind):
         return getattr(self, "{}_index".format(kind))
 

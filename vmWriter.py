@@ -24,34 +24,35 @@ class vmWriter:
                 break
             self.symbol_table.define(name.text, type.text, kind.text)
 
-    def write_tree(self, element: ElementTree.Element, parent=None):
+    def write_tree(self, tree: ElementTree.Element, parent=None):
         if parent is None:
-            self.symbol_table.class_name = element[1].text
-        if element.tag in (LabelTypes.CLASS_VAR_DEC, LabelTypes.VAR_DEC):
-            self.compile_vars(element)
-        if element.tag == LabelTypes.STRING_CONSTANT:
-            string = element.text
-            self.write_push("constant", len(string))
-            self.write_call("String.new", 1)
-            for i in string:
-                self.write_push("constant", ord(i))
-                self.write_call("String.appendChar", 2)
-        if element.tag == LabelTypes.INTEGER_CONSTANT:
-            self.write_push("constant", element.text)
-        if element.tag == LabelTypes.TERM:
-            self.compile_term(element)
-        if element.tag == LabelTypes.SUBROUTINE_DEC:
-            self.compile_function(element)
+            self.symbol_table.class_name = tree[1].text
 
-        for child in element:
-            self.write_tree(child, element)
+        for element in tree:
+            if element.tag in (LabelTypes.CLASS_VAR_DEC, LabelTypes.VAR_DEC):
+                self.compile_vars(element)
+            if element.tag == LabelTypes.STRING_CONSTANT:
+                string = element.text
+                self.write_push("constant", len(string))
+                self.write_call("String.new", 1)
+                for i in string:
+                    self.write_push("constant", ord(i))
+                    self.write_call("String.appendChar", 2)
+            if element.tag == LabelTypes.INTEGER_CONSTANT:
+                self.write_push("constant", element.text)
+            if element.tag == LabelTypes.TERM:
+                self.compile_term(element)
+            if element.tag == LabelTypes.SUBROUTINE_DEC:
+                self.compile_subroutine(element)
 
-    def compile_function(self, element):
+    def compile_subroutine(self, element):
         function_type, *args = element
         if function_type.text == "constructor":
             self.compile_constructor(element)
+        elif function_type.text == "function":
+            self.compile_function(element)
         else:
-            self.compile_subroutine(element)
+            self.compile_method(element)
 
     def write_if(self, label):
         self.output_file.write('not\n')  # Negate to jump if the conditions doesn't hold
@@ -135,43 +136,53 @@ class vmWriter:
             self.write_push(value["kind"], value["index"])
             self.compile_expression(children[2])
         elif len(children) == 6:
-            expression_list= children[4]
+            expression_list = children[4]
+            class_name = children[0]
+            function = children[2]
+
+            value = self.symbol_table.get_var(class_name.text)
+            if value is not None:
+                self.write_push(value["kind"], value["index"])
+                func_cal = value["type"] + "." + function.text
+            else:
+                func_cal = class_name.text + "." + function.text
+
             self.compile_expression_list(expression_list)
             arg_count = (len(expression_list) + 1) // 2
-            self.write_call(children[0].text+"."+children[2].text, arg_count)
+            self.write_call(func_cal, arg_count)
 
     def compile_expression(self, element):
         children = list(element)
         self.compile_term(children[0])
         for i in range((len(children) - 1) // 2):
-            term = children[i * 2]
-            op = children[(i * 2) + 1]
+            op = children[1 + (i * 2)]
+            term = children[(i * 2) + 2]
             self.compile_term(term)
-            self.process_op(op)
+            self.process_op(op.text)
 
     def process_op(self, op):
         if op == '+':
-            self.write("add" + '\n')
+            self.write("add")
         elif op == '-':
-            self.write("sub" + '\n')
+            self.write("sub")
         elif op == '*':
-            self.write("call Math.multiply 2" + '\n')
+            self.write("call Math.multiply 2")
         elif op == '/':
-            self.write("call Math.divide 2" + '\n')
+            self.write("call Math.divide 2")
         elif op == '&':
-            self.write("and" + '\n')
+            self.write("and")
         elif op == '|':
-            self.write("or" + '\n')
+            self.write("or")
         elif op == '<':
-            self.write("lt" + '\n')
+            self.write("lt")
         elif op == '>':
-            self.write("gt" + '\n')
+            self.write("gt")
         elif op == '=':
-            self.write("eq" + '\n')
+            self.write("eq")
         elif op == '-':
-            self.write("neg" + '\n')
+            self.write("neg")
         elif op == '~':
-            self.write("not" + '\n')
+            self.write("not")
 
     def handle_str(self, element):
         string = element.text
@@ -181,10 +192,43 @@ class vmWriter:
             self.write_push("constant", ord(i))
             self.write_call("String.appendChar", 2)
 
-    def compile_subroutine(self, element):
+    def compile_constructor(self, element):
+        self.symbol_table.subroutine_var_dec = {}
         keyword, class_name, func_name, _, param_list, _, body = list(element)
         param_count = len(list(param_list))
+
+        if param_count:
+            self.compile_arguments(param_list)
+
         self.write_function(class_name.text, func_name.text, param_count)
+        self.output_file.write("push constant " + str(self.symbol_table.field_index) + '\n')
+        self.output_file.write("call Memory.alloc 1" + '\n')
+        self.output_file.write("pop pointer 0" + '\n')  # this
+        # todo - add var dec and body parsing
+        statements = list(list(body)[1])
+        for statement in statements:
+            self.compile_statement(statement)
+            
+    def compile_method(self, element):
+        self.symbol_table.reset_subroutine()
+        keyword, class_name, func_name, _, param_list, _, body = list(element)
+        param_count = len(list(param_list))
+        if param_count:
+            self.compile_arguments(param_list)
+        self.write_function(class_name.text, func_name.text, param_count)
+        # todo - add var dec and body parsing
+        statements = list(list(body)[1])
+        for statement in statements:
+            self.compile_statement(statement)
+
+    def compile_function(self, element):
+        self.symbol_table.reset_subroutine()
+        keyword, return_type, func_name, _, param_list, _, body = list(element)
+        param_count = len(list(param_list))
+        if param_count:
+            self.compile_arguments(param_list)
+        self.write_function(self.symbol_table.class_name, func_name.text, param_count)
+        # todo - add var dec and body parsing
         statements = list(list(body)[1])
         for statement in statements:
             self.compile_statement(statement)
@@ -258,27 +302,15 @@ class vmWriter:
     def compile_if(self, element):
         pass
 
-    def compile_constructor(self, element):
-        self.symbol_table.subroutine_var_dec = {}
-        keyword, class_name, func_name, _, param_list, _, body = list(element)
-        param_count = len(list(param_list))
+   
 
-        if param_count:
-            self.compile_arguments()
-
-        self.write_function(class_name.text, func_name.text, param_count)
-        self.output_file.write("push constant " + str(self.symbol_table.field_index) + '\n')
-        self.output_file.write("call Memory.alloc 1" + '\n')
-        self.output_file.write("pop pointer 0" + '\n')  # this
-        statements = list(list(body)[1])
-        for statement in statements:
-            self.compile_statement(statement)
-
-    def compile_arguments(self):
-        pass
+    def compile_arguments(self, element):
+        for i in range((len(element) - 1) // 3):
+            type = element[i * 3]
+            name = element[(i * 3) + 1]
+            self.symbol_table.define(name, type, "argument")
 
     def compile_expression_list(self, expression_list_element):
         for element in expression_list_element:
             if element.tag == LabelTypes.EXPRESSION:
                 self.compile_expression(element)
-        
