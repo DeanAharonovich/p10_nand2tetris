@@ -101,7 +101,6 @@ class vmWriter:
             self.write_call('String.appendChar', 2)
 
     def compile_term(self, element):
-        # todo add compile array call here somewhere!
         children = list(element)
         if len(children) == 1:
             child = children[0]
@@ -133,7 +132,10 @@ class vmWriter:
         elif len(children) == 4:
             value = self.symbol_table.get_var(children[0].text)
             self.write_push(value["kind"], value["index"])
-            self.compile_expression(children[2])
+            if children[1].text == "[":
+                self.compile_arr(children[0].text,children[2])
+            else:
+                self.compile_expression(children[2])
         elif len(children) == 6:
             expression_list = children[4]
             class_name = children[0]
@@ -344,11 +346,12 @@ class vmWriter:
     def write_ifgoto(self, labelname):
         self.write("if-goto " + labelname)
 
-    def compile_arr(self, arr_name, indice_element, expression):
+    def compile_arr(self, arr_name, indice_element, expression=None):
         row = self.symbol_table.get_var(arr_name)
         self.write_push(row["kind"], row["index"])
         self.compile_expression(indice_element)
         self.process_op('+')
         self.write_pop("pointer", 1)
         self.write_push("that", 0)
-        self.compile_expression(expression)
+        if expression:
+            self.compile_expression(expression)
