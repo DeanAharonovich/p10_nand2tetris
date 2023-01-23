@@ -16,6 +16,7 @@ class SymbolTable:
         self.class_name = None
         self.methods = set()
         self.while_counter = 0
+        self.if_counter = 0
 
     # def reset(self):
     #     self.subroutine_var_dec = []

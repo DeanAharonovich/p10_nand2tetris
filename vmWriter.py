@@ -12,7 +12,6 @@ kind_to_segment = {'static': 'static',
 class vmWriter:
     def __init__(self, output_file):
         self.output_file = output_file
-        self.label_count = 0
         self.symbol_table = SymbolTable()
 
     def compile_vars(self, element):
@@ -55,7 +54,6 @@ class vmWriter:
             self.compile_method(element)
 
     def write_if(self, label):
-        self.write('not')  # Negate to jump if the conditions doesn't hold
         self.write('if-goto {}'.format(label))
 
     def write_goto(self, label):
@@ -113,6 +111,7 @@ class vmWriter:
             elif child.tag == LabelTypes.IDENTIFIER:
                 value = self.symbol_table.get_var(children[0].text)
                 self.write_push(value["kind"], value["index"])
+        
 
             elif child.tag == LabelTypes.KEYWORD:
                 if child.text == "null" or child.text == "false":
@@ -125,8 +124,9 @@ class vmWriter:
 
         elif len(children) == 2:
             self.compile_term(children[1])
-            if element.text == '~' or element.text == '-': # todo - change element.text to child.text
-                self.process_op(element.text)
+            child =element[0]
+            if child.text == '~' or child.text == '-':  
+                self.process_op(child.text)
         elif len(children) == 3:
             self.compile_expression(children[1])
         elif len(children) == 4:
@@ -146,10 +146,14 @@ class vmWriter:
                 self.write_push(value["kind"], value["index"])
                 func_cal = value["type"] + "." + function.text
             else:
+                if function.text != "new" and value is not None:
+                    self.write_push("pointer", 0)
                 func_cal = class_name.text + "." + function.text
 
             self.compile_expression_list(expression_list)
             arg_count = (len(expression_list) + 1) // 2
+            if function.text != "new" and value is not None:
+                arg_count+=1
             self.write_call(func_cal, arg_count)
 
     def compile_expression(self, element):
@@ -214,13 +218,16 @@ class vmWriter:
 
     def compile_method(self, element):
         self.symbol_table.reset_subroutine()
-        keyword, class_name, func_name, _, param_list, _, body = list(element)
+        keyword, return_type, func_name, _, param_list, _, body = list(element)
         param_count = len(list(param_list))
         if param_count:
             self.compile_arguments(param_list)
-        self.write_function(class_name.text, func_name.text, param_count)
-
-        for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]:
+        vars= [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
+        self.write_function(self.symbol_table.class_name, func_name.text, len(vars))
+        if return_type.text == "void":
+            self.write_push("argument", 0)
+            self.write_pop("pointer", 0)
+        for var_dec in vars:
             self.compile_vars(var_dec)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
@@ -235,6 +242,9 @@ class vmWriter:
         for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]:
             self.compile_vars(var_dec)
         self.write_function(self.symbol_table.class_name, func_name.text, self.symbol_table.local_index)
+        if return_type.text == "void":
+            self.write_push("argument", 0)
+            self.write_pop("pointer", 0)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
             self.compile_statement(statement)
@@ -285,9 +295,10 @@ class vmWriter:
                 self.write_push("pointer", 0)
                 arg_count += 1
             self.compile_expression_list(expression_list)
-            self.write_call(self.symbol_table.class_name + '.' + function.text, arg_count)
+            self.write_push("pointer", 0)
+            self.write_call(self.symbol_table.class_name + '.' + function.text, arg_count+1)
         else:
-            pass
+            raise Exception("compilation error")
 
         self.write_pop("temp", 0)
 
@@ -317,14 +328,24 @@ class vmWriter:
 
     def compile_if(self, element):
         children = list(element)
-        _if, parentheses, expression, parentheses, brackets, statements, brackets = children
+        _if, parentheses, expression, parentheses, brackets, statements, brackets, *else_params = children
         self.compile_expression(expression)
-        self.write_if("IF_FALSE{}".format(self.label_count))
+        self.write_if("IF_TRUE{}".format(self.symbol_table.if_counter))
+        self.write_goto("IF_FALSE{}".format(self.symbol_table.if_counter))
+        self.write_label("IF_TRUE{}".format(self.symbol_table.if_counter))
         for statement in statements:
             self.compile_statement(statement)
-        self.write_label("IF_FALSE{}".format(self.label_count))
-        self.label_count += 1
-        pass
+
+        if else_params:
+            self.write_goto("IF_END{}".format(self.symbol_table.if_counter))
+        self.write_label("IF_FALSE{}".format(self.symbol_table.if_counter))
+
+        if else_params:
+            _, _, statements, _ = else_params
+            for statement in statements:
+                self.compile_statement(statement)
+            self.write_Label("IF_END{}".format(self.symbol_table.if_counter))
+        self.symbol_table.if_counter += 1
 
     def compile_arguments(self, element):
         for i in range((len(element) - 1) // 3):
