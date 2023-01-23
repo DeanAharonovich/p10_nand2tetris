@@ -204,15 +204,13 @@ class vmWriter:
         self.output_file.write("push constant " + str(self.symbol_table.field_index) + '\n')
         self.output_file.write("call Memory.alloc 1" + '\n')
         self.output_file.write("pop pointer 0" + '\n')  # this
-        # todo - add var dec and body parsing
         element_num = 1
-        while list(body)[element_num].tag == 'varDec':
-            self.compile_vars(list(body)[element_num])
-            element_num += 1
-        statements = list(list(body)[element_num])
+        for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.CLASS_VAR_DEC]:
+            self.compile_vars(var_dec)
+        statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
             self.compile_statement(statement)
-            
+
     def compile_method(self, element):
         self.symbol_table.reset_subroutine()
         keyword, class_name, func_name, _, param_list, _, body = list(element)
@@ -220,12 +218,10 @@ class vmWriter:
         if param_count:
             self.compile_arguments(param_list)
         self.write_function(class_name.text, func_name.text, param_count)
-        # todo - add var dec and body parsing
-        element_num = 1
-        while list(body)[element_num].tag == 'varDec':
-            self.compile_vars(list(body)[element_num])
-            element_num += 1
-        statements = list(list(body)[element_num])
+
+        for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]:
+            self.compile_vars(var_dec)
+        statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
             self.compile_statement(statement)
 
@@ -236,12 +232,9 @@ class vmWriter:
         if param_count:
             self.compile_arguments(param_list)
         self.write_function(self.symbol_table.class_name, func_name.text, param_count)
-        # todo - add var dec and body parsing
-        element_num = 1
-        while list(body)[element_num].tag == 'varDec':
-            self.compile_vars(list(body)[element_num])
-            element_num += 1
-        statements = list(list(body)[element_num])
+        for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]:
+            self.compile_vars(var_dec)
+        statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
             self.compile_statement(statement)
 
@@ -298,8 +291,17 @@ class vmWriter:
         self.write_pop("temp", 0)
 
     def compile_while(self, element):
-        pass
-
+        _, _, while_expression, _, _, statements, _ = element
+        counter = self.symbol_table.while_counter
+        self.symbol_table.while_counter+=1
+        self.write_Label("WHILE_EXP"+str(counter))
+        self.compile_expression(while_expression)
+        self.process_op("~")
+        self.write_ifgoto("WHILE_END" + str(counter))
+        for statement in statements:
+            self.compile_statement(statement)
+        self.write_goto("WHILE_EXP"+str(counter))
+        self.write_Label("WHILE_END"+str(counter))
     def compile_let(self, element):
         children = list(element)
 
@@ -309,7 +311,7 @@ class vmWriter:
             value = self.symbol_table.get_var(var.text)
             self.write_pop(value["kind"], value["index"])
         else:
-            pass  # array
+            pass  # todo array 
 
     def compile_if(self, element):
         children = list(element)
@@ -332,3 +334,12 @@ class vmWriter:
         for element in expression_list_element:
             if element.tag == LabelTypes.EXPRESSION:
                 self.compile_expression(element)
+    
+    def write_Label(self, name):
+        self.write("label " + name)
+
+    def write_goto(self,labelname):
+        self.write("goto " + labelname)
+
+    def write_ifgoto(self, labelname):
+        self.write("if-goto " + labelname)

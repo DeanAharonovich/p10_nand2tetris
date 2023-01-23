@@ -1,7 +1,7 @@
 class SymbolTable:
     # variable kinds
     ARG = "argument"
-    LOCAL = "local"
+    LOCAL = "var"
     STATIC = "static"
     FIELD = "field"
 
@@ -15,6 +15,7 @@ class SymbolTable:
         self.field_index = 0
         self.class_name = None
         self.methods = set()
+        self.while_counter = 0
 
     # def reset(self):
     #     self.subroutine_var_dec = []
@@ -30,7 +31,7 @@ class SymbolTable:
                 self.subroutine_var_dec[name] = {"type": type, "kind": kind, "index": self.argument_index}
                 self.argument_index += 1
             if kind == SymbolTable.LOCAL:
-                self.subroutine_var_dec[name] = {"type": type, "kind": kind, "index": self.local_index}
+                self.subroutine_var_dec[name] = {"type": type, "kind": "local", "index": self.local_index}
                 self.local_index += 1
         else:
             if kind == SymbolTable.STATIC:
