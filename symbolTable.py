@@ -17,19 +17,14 @@ class SymbolTable:
         self.methods = set()
         self.while_counter = 0
         self.if_counter = 0
+        self.ctor_args = set()
 
-    # def reset(self):
-    #     self.subroutine_var_dec = []
-    #     self.class_var_dec = []
-    #     self.argument_index = 0
-    #     self.local_index = 0
-    #     self.static_index = 0
-    #     self.field_index = 0
-
-    def define(self, name, type, kind):
+    def define(self, name, type, kind, is_ctor=False):
         if kind == SymbolTable.ARG or kind == SymbolTable.LOCAL:
             if kind == SymbolTable.ARG:
                 self.subroutine_var_dec[name] = {"type": type, "kind": kind, "index": self.argument_index}
+                if is_ctor:
+                    self.ctor_args.add(name)
                 self.argument_index += 1
             if kind == SymbolTable.LOCAL:
                 self.subroutine_var_dec[name] = {"type": type, "kind": "local", "index": self.local_index}
@@ -45,6 +40,8 @@ class SymbolTable:
         self.subroutine_var_dec = {}
         self.argument_index = 0 
         self.local_index = 0 
+        self.if_counter=0
+        self.while_counter=0
         
     def var_count(self, kind):
         return getattr(self, "{}_index".format(kind))
