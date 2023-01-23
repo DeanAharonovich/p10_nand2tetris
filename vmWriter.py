@@ -55,25 +55,23 @@ class vmWriter:
             self.compile_method(element)
 
     def write_if(self, label):
-        self.output_file.write('not\n')  # Negate to jump if the conditions doesn't hold
-        self.output_file.write('if-goto {}\n'.format(label))
+        self.write('not')  # Negate to jump if the conditions doesn't hold
+        self.write('if-goto {}'.format(label))
 
     def write_goto(self, label):
-        self.output_file.write('goto {}\n'.format(label))
+        self.write('goto {}'.format(label))
 
     def write_label(self, name):
-        self.output_file.write('label {}\n'.format(name))
+        self.write('label {}'.format(name))
 
     def write_function(self, class_name, func_name, param_count):
-        self.output_file.write('function {}.{} {}\n'.format(class_name, func_name, param_count))
+        self.write('function {}.{} {}'.format(class_name, func_name, param_count))
 
     def write_return(self):
-        self.output_file.write('return\n')
+        self.write('return')
 
     def write_call(self, func_name, arg_count):
-        self.output_file.write('call {} {}\n'.format(
-            func_name, arg_count
-        ))
+        self.write('call {} {}'.format(func_name, arg_count))
 
     def write_push_symbol(self, jack_symbol):
         kind = jack_symbol.kind
@@ -83,10 +81,10 @@ class vmWriter:
         self.write_push(segment, offset)
 
     def write_pop(self, segment, offset):
-        self.output_file.write('pop {0} {1}\n'.format(segment, offset))
+        self.write('pop {0} {1}'.format(segment, offset))
 
     def write_push(self, segment, offset):
-        self.output_file.write('push {0} {1}\n'.format(segment, offset))
+        self.write('push {0} {1}'.format(segment, offset))
 
     def write(self, vm_line):
         self.output_file.write('{}\n'.format(vm_line))
@@ -103,6 +101,7 @@ class vmWriter:
             self.write_call('String.appendChar', 2)
 
     def compile_term(self, element):
+        # todo add compile array call here somewhere!
         children = list(element)
         if len(children) == 1:
             child = children[0]
@@ -201,9 +200,9 @@ class vmWriter:
             self.compile_arguments(param_list)
 
         self.write_function(class_name.text, func_name.text, param_count)
-        self.output_file.write("push constant " + str(self.symbol_table.field_index) + '\n')
-        self.output_file.write("call Memory.alloc 1" + '\n')
-        self.output_file.write("pop pointer 0" + '\n')  # this
+        self.write("push constant " + str(self.symbol_table.field_index))
+        self.write("call Memory.alloc 1")
+        self.write("pop pointer 0")  # this
         element_num = 1
         for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.CLASS_VAR_DEC]:
             self.compile_vars(var_dec)
@@ -293,25 +292,26 @@ class vmWriter:
     def compile_while(self, element):
         _, _, while_expression, _, _, statements, _ = element
         counter = self.symbol_table.while_counter
-        self.symbol_table.while_counter+=1
-        self.write_Label("WHILE_EXP"+str(counter))
+        self.symbol_table.while_counter += 1
+        self.write_Label("WHILE_EXP" + str(counter))
         self.compile_expression(while_expression)
         self.process_op("~")
         self.write_ifgoto("WHILE_END" + str(counter))
         for statement in statements:
             self.compile_statement(statement)
-        self.write_goto("WHILE_EXP"+str(counter))
-        self.write_Label("WHILE_END"+str(counter))
+        self.write_goto("WHILE_EXP" + str(counter))
+        self.write_Label("WHILE_END" + str(counter))
+
     def compile_let(self, element):
         children = list(element)
-
         if len(children) == 5:
             let, var, equal, expression, semicolon = children
             self.compile_expression(expression)
             value = self.symbol_table.get_var(var.text)
             self.write_pop(value["kind"], value["index"])
         else:
-            pass  # todo array 
+            let, var, _, indice, _, equal, expression, semicolon = children
+            self.compile_arr(var.text, indice, expression)
 
     def compile_if(self, element):
         children = list(element)
@@ -334,12 +334,21 @@ class vmWriter:
         for element in expression_list_element:
             if element.tag == LabelTypes.EXPRESSION:
                 self.compile_expression(element)
-    
+
     def write_Label(self, name):
         self.write("label " + name)
 
-    def write_goto(self,labelname):
+    def write_goto(self, labelname):
         self.write("goto " + labelname)
 
     def write_ifgoto(self, labelname):
         self.write("if-goto " + labelname)
+
+    def compile_arr(self, arr_name, indice_element, expression):
+        row = self.symbol_table.get_var(arr_name)
+        self.write_push(row["kind"], row["index"])
+        self.compile_expression(indice_element)
+        self.process_op('+')
+        self.write_pop("pointer", 1)
+        self.write_push("that", 0)
+        self.compile_expression(expression)
