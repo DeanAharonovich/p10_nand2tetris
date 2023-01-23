@@ -61,8 +61,8 @@ class vmWriter:
     def write_goto(self, label):
         self.output_file.write('goto {}\n'.format(label))
 
-    def write_label(self, label):
-        self.output_file.write('label {}\n'.format(label))
+    def write_label(self, name):
+        self.output_file.write('label {}\n'.format(name))
 
     def write_function(self, class_name, func_name, param_count):
         self.output_file.write('function {}.{} {}\n'.format(class_name, func_name, param_count))
@@ -97,10 +97,10 @@ class vmWriter:
     def write_string(self, s):
         s = s[1:-1]
         self.write_constant(len(s))
-        self.write_call('String', 'new', 1)
+        self.write_call('String.new', 1)
         for c in s:
             self.write_constant(ord(c))
-            self.write_call('String', 'appendChar', 2)
+            self.write_call('String.appendChar', 2)
 
     def compile_term(self, element):
         children = list(element)
@@ -193,7 +193,7 @@ class vmWriter:
             self.write_call("String.appendChar", 2)
 
     def compile_constructor(self, element):
-        self.symbol_table.subroutine_var_dec = {}
+        self.symbol_table.reset_subroutine()
         keyword, class_name, func_name, _, param_list, _, body = list(element)
         param_count = len(list(param_list))
 
@@ -205,7 +205,11 @@ class vmWriter:
         self.output_file.write("call Memory.alloc 1" + '\n')
         self.output_file.write("pop pointer 0" + '\n')  # this
         # todo - add var dec and body parsing
-        statements = list(list(body)[1])
+        element_num = 1
+        while list(body)[element_num].tag == 'varDec':
+            self.compile_vars(list(body)[element_num])
+            element_num += 1
+        statements = list(list(body)[element_num])
         for statement in statements:
             self.compile_statement(statement)
             
@@ -217,7 +221,11 @@ class vmWriter:
             self.compile_arguments(param_list)
         self.write_function(class_name.text, func_name.text, param_count)
         # todo - add var dec and body parsing
-        statements = list(list(body)[1])
+        element_num = 1
+        while list(body)[element_num].tag == 'varDec':
+            self.compile_vars(list(body)[element_num])
+            element_num += 1
+        statements = list(list(body)[element_num])
         for statement in statements:
             self.compile_statement(statement)
 
@@ -229,7 +237,11 @@ class vmWriter:
             self.compile_arguments(param_list)
         self.write_function(self.symbol_table.class_name, func_name.text, param_count)
         # todo - add var dec and body parsing
-        statements = list(list(body)[1])
+        element_num = 1
+        while list(body)[element_num].tag == 'varDec':
+            self.compile_vars(list(body)[element_num])
+            element_num += 1
+        statements = list(list(body)[element_num])
         for statement in statements:
             self.compile_statement(statement)
 
@@ -300,9 +312,15 @@ class vmWriter:
             pass  # array
 
     def compile_if(self, element):
+        children = list(element)
+        _if, parentheses, expression, parentheses, brackets, statements, brackets = children
+        self.compile_expression(expression)
+        self.write_if("IF_FALSE{}".format(self.label_count))
+        for statement in statements:
+            self.compile_statement(statement)
+        self.write_label("IF_FALSE{}".format(self.label_count))
+        self.label_count += 1
         pass
-
-   
 
     def compile_arguments(self, element):
         for i in range((len(element) - 1) // 3):
