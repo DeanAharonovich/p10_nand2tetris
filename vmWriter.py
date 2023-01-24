@@ -71,13 +71,6 @@ class vmWriter:
     def write_call(self, func_name, arg_count):
         self.write('call {} {}'.format(func_name, arg_count))
 
-    def write_push_symbol(self, jack_symbol):
-        kind = jack_symbol.kind
-        offset = jack_symbol.id  # the offset in the segment
-
-        segment = kind_to_segment[kind]
-        self.write_push(segment, offset)
-
     def write_pop(self, segment, offset):
         self.write('pop {0} {1}'.format(segment, offset))
 
@@ -98,7 +91,7 @@ class vmWriter:
             self.write_constant(ord(c))
             self.write_call('String.appendChar', 2)
 
-    def compile_term(self, element):
+    def compile_term(self, element, parent=None):
         children = list(element)
         if len(children) == 1:
             child = children[0]
@@ -110,8 +103,9 @@ class vmWriter:
 
             elif child.tag == LabelTypes.IDENTIFIER:
                 value = self.symbol_table.get_var(children[0].text)
-                self.write_push(value["kind"], value["index"])
-        
+                self.symbol_table.get_var(children[0].text)
+                if value["kind"] != "argument" or children[0].text in self.symbol_table.ctor_args:
+                    self.write_push(value["kind"], value["index"]) # todo this if above causes problems in the convetToBin test as these args need to be pushed when compiling an if statment
 
             elif child.tag == LabelTypes.KEYWORD:
                 if child.text == "null" or child.text == "false":
@@ -124,8 +118,10 @@ class vmWriter:
 
         elif len(children) == 2:
             self.compile_term(children[1])
-            child =element[0]
-            if child.text == '~' or child.text == '-':  
+            child = element[0]
+            if child.text == "-":
+                self.write("neg")
+            elif child.text == "-":
                 self.process_op(child.text)
         elif len(children) == 3:
             self.compile_expression(children[1])
@@ -153,7 +149,7 @@ class vmWriter:
             self.compile_expression_list(expression_list)
             arg_count = (len(expression_list) + 1) // 2
             if function.text != "new" and value is not None:
-                arg_count+=1
+                arg_count += 1
             self.write_call(func_cal, arg_count)
 
     def compile_expression(self, element):
@@ -200,12 +196,12 @@ class vmWriter:
     def compile_constructor(self, element):
         self.symbol_table.reset_subroutine()
         keyword, class_name, func_name, _, param_list, _, body = list(element)
-        param_count = len(list(param_list))
+        param_count = (len(list(param_list)) // 3) + 1
 
         if param_count:
-            self.compile_arguments(param_list)
+            self.compile_arguments(param_list, True)
 
-        self.write_function(class_name.text, func_name.text, param_count)
+        self.write_function(class_name.text, func_name.text, 0)
         self.write("push constant " + str(self.symbol_table.field_index))
         self.write("call Memory.alloc 1")
         self.write("pop pointer 0")  # this
@@ -219,14 +215,15 @@ class vmWriter:
     def compile_method(self, element):
         self.symbol_table.reset_subroutine()
         keyword, return_type, func_name, _, param_list, _, body = list(element)
-        param_count = len(list(param_list))
+        param_count = len(list(param_list)) // 2
         if param_count:
             self.compile_arguments(param_list)
-        vars= [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
+        vars = [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
         self.write_function(self.symbol_table.class_name, func_name.text, len(vars))
-        if return_type.text == "void":
-            self.write_push("argument", 0)
-            self.write_pop("pointer", 0)
+        self.write_push("argument", 0)
+        self.write_pop("pointer", 0)
+        if param_count:
+            self.write_push("argument", param_count)
         for var_dec in vars:
             self.compile_vars(var_dec)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
@@ -242,9 +239,10 @@ class vmWriter:
         for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]:
             self.compile_vars(var_dec)
         self.write_function(self.symbol_table.class_name, func_name.text, self.symbol_table.local_index)
-        if return_type.text == "void":
-            self.write_push("argument", 0)
+        if return_type.text == "void" and self.symbol_table.class_name != "Main":
             self.write_pop("pointer", 0)
+        if return_type.text != "void" and self.symbol_table.class_name == "Main":
+            self.write_push("argument", 0)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
             self.compile_statement(statement)
@@ -253,7 +251,8 @@ class vmWriter:
         if element.tag == LabelTypes.LET_STATEMENT:
             self.compile_let(element)
         if element.tag == LabelTypes.IF_STATEMENT:
-            self.compile_if(element)
+            self.symbol_table.if_counter += 1
+            self.compile_if(element, self.symbol_table.if_counter)
         if element.tag == LabelTypes.WHILE_STATEMENT:
             self.compile_while(element)
         if element.tag == LabelTypes.DO_STATEMENT:
@@ -265,8 +264,9 @@ class vmWriter:
         _, null_or_expression, *args = list(element)
         if null_or_expression.tag == LabelTypes.EXPRESSION:
             self.compile_expression(null_or_expression)
-        else:
+        elif null_or_expression.tag == LabelTypes.SYMBOL:
             self.write_push("constant", 0)
+
         self.write_return()
 
     def compile_do(self, element):
@@ -296,7 +296,7 @@ class vmWriter:
                 arg_count += 1
             self.compile_expression_list(expression_list)
             self.write_push("pointer", 0)
-            self.write_call(self.symbol_table.class_name + '.' + function.text, arg_count+1)
+            self.write_call(self.symbol_table.class_name + '.' + function.text, arg_count + 1)
         else:
             raise Exception("compilation error")
 
@@ -326,32 +326,32 @@ class vmWriter:
             let, var, _, indice, _, equal, expression, semicolon = children
             self.compile_arr(var.text, indice, expression)
 
-    def compile_if(self, element):
+    def compile_if(self, element, counter):
+        counter = counter - 1
         children = list(element)
         _if, parentheses, expression, parentheses, brackets, statements, brackets, *else_params = children
         self.compile_expression(expression)
-        self.write_if("IF_TRUE{}".format(self.symbol_table.if_counter))
-        self.write_goto("IF_FALSE{}".format(self.symbol_table.if_counter))
-        self.write_label("IF_TRUE{}".format(self.symbol_table.if_counter))
+        self.write_if("IF_TRUE{}".format(counter))
+        self.write_goto("IF_FALSE{}".format(counter))
+        self.write_label("IF_TRUE{}".format(counter))
         for statement in statements:
             self.compile_statement(statement)
 
         if else_params:
-            self.write_goto("IF_END{}".format(self.symbol_table.if_counter))
-        self.write_label("IF_FALSE{}".format(self.symbol_table.if_counter))
+            self.write_goto("IF_END{}".format(counter))
+        self.write_label("IF_FALSE{}".format(counter))
 
         if else_params:
             _, _, statements, _ = else_params
             for statement in statements:
                 self.compile_statement(statement)
-            self.write_Label("IF_END{}".format(self.symbol_table.if_counter))
-        self.symbol_table.if_counter += 1
+            self.write_Label("IF_END{}".format(counter))
 
-    def compile_arguments(self, element):
-        for i in range((len(element) - 1) // 3):
+    def compile_arguments(self, element, is_ctor=False):
+        for i in range(((len(element) - 1) // 3) + 1):
             type = element[i * 3]
             name = element[(i * 3) + 1]
-            self.symbol_table.define(name, type, "argument")
+            self.symbol_table.define(name.text, type.text, "argument", is_ctor)
 
     def compile_expression_list(self, expression_list_element):
         for element in expression_list_element:
@@ -360,9 +360,6 @@ class vmWriter:
 
     def write_Label(self, name):
         self.write("label " + name)
-
-    def write_goto(self, labelname):
-        self.write("goto " + labelname)
 
     def write_ifgoto(self, labelname):
         self.write("if-goto " + labelname)
