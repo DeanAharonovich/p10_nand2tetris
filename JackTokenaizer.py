@@ -48,6 +48,8 @@ class JackTokenaizer:
                 break
 
             if buffer in TokensMapping.keywords:
+                if self.next_char.isalpha():
+                    continue
                 self.current_token = buffer
                 self.current_type = TokenTypes.KEYWORD
                 break

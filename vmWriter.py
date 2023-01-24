@@ -106,7 +106,8 @@ class vmWriter:
                 self.symbol_table.get_var(children[0].text)
                 if value["kind"] != "argument" or children[0].text in self.symbol_table.ctor_args:
                     self.write_push(value["kind"], value["index"]) # todo this if above causes problems in the convetToBin test as these args need to be pushed when compiling an if statment
-
+                elif value["kind"] == "argument":
+                    self.write_push(value["kind"], value["index"])
             elif child.tag == LabelTypes.KEYWORD:
                 if child.text == "null" or child.text == "false":
                     self.write_push("constant", 0)
@@ -121,7 +122,7 @@ class vmWriter:
             child = element[0]
             if child.text == "-":
                 self.write("neg")
-            elif child.text == "-":
+            elif child.text == "~":
                 self.process_op(child.text)
         elif len(children) == 3:
             self.compile_expression(children[1])
@@ -241,7 +242,7 @@ class vmWriter:
         self.write_function(self.symbol_table.class_name, func_name.text, self.symbol_table.local_index)
         if return_type.text == "void" and self.symbol_table.class_name != "Main":
             self.write_pop("pointer", 0)
-        if return_type.text != "void" and self.symbol_table.class_name == "Main":
+        if return_type.text != "void" and self.symbol_table.class_name != "Main":
             self.write_push("argument", 0)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
