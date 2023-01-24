@@ -5,7 +5,6 @@ class SymbolTable:
     STATIC = "static"
     FIELD = "field"
 
-    # Each symbol table (class,subroutine) is represented as a different instances
     def __init__(self):
         self.subroutine_var_dec = {}
         self.class_var_dec = {}
@@ -18,15 +17,8 @@ class SymbolTable:
         self.while_counter = 0
         self.if_counter = 0
 
-    # def reset(self):
-    #     self.subroutine_var_dec = []
-    #     self.class_var_dec = []
-    #     self.argument_index = 0
-    #     self.local_index = 0
-    #     self.static_index = 0
-    #     self.field_index = 0
-
     def define(self, name, type, kind):
+        """ adding the variable to the appropriate symbol table """
         if kind == SymbolTable.ARG or kind == SymbolTable.LOCAL:
             if kind == SymbolTable.ARG:
                 self.subroutine_var_dec[name] = {"type": type, "kind": kind, "index": self.argument_index}
@@ -42,10 +34,12 @@ class SymbolTable:
                 self.class_var_dec[name] = {"type": type, "kind": "this", "index": self.field_index}
                 self.field_index += 1
     def reset_subroutine(self):
+        """ reset the sub for next sub var declarations """
         self.subroutine_var_dec = {}
         self.argument_index = 0 
         self.local_index = 0 
-        
+
+    """ getter functions """
     def var_count(self, kind):
         return getattr(self, "{}_index".format(kind))
 

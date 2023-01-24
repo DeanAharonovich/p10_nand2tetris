@@ -10,6 +10,7 @@ class CompilationEngine:
         self.tokenizer = JackTokenaizer(self.input_file)
 
     def compile_class(self):
+        """ parsing a complete class to a tree element """
         class_element = Element('class')
 
         self.tokenizer.advance()
@@ -27,6 +28,7 @@ class CompilationEngine:
         return class_element
 
     def compile_var_dec_generic(self, var_dec_type):
+        """ parsing a var declaration to an element """
         var_dec_element = Element(var_dec_type)
         var_dec_element.append(self.process_keyword())
 
@@ -45,6 +47,7 @@ class CompilationEngine:
         return var_dec_element
 
     def compile_subroutine(self):
+        """ parsing a sub to a tree_element """
         subroutine_element = Element(LabelTypes.SUBROUTINE_DEC)
         subroutine_element.append(self.process_keyword())
 
@@ -61,6 +64,7 @@ class CompilationEngine:
         return subroutine_element
 
     def compile_parameter_list(self):
+        """ parsing a parameter list to tree_element """
         param_list_element = Element(LabelTypes.PARAMETER_LIST)
 
         while self.tokenizer.current_token != ')':
@@ -74,6 +78,7 @@ class CompilationEngine:
         return param_list_element
 
     def compile_subroutine_body(self):
+        """ parsing a sub_body to tree_element """
         sub_body_element = Element(LabelTypes.SUBROUTINE_BODY)
         sub_body_element.append(self.process_symbol())
         while self.tokenizer.current_token == "var":
@@ -83,6 +88,7 @@ class CompilationEngine:
         return sub_body_element
 
     def compile_statements(self):
+        """ parsing a statement to tree_element """
         statements_element = Element(LabelTypes.STATEMENTS)
 
         while self.tokenizer.current_type == TokenTypes.KEYWORD:
@@ -99,6 +105,7 @@ class CompilationEngine:
         return statements_element
 
     def compile_let(self):
+        """ parsing a let statement to tree_element """
         let_element = Element(LabelTypes.LET_STATEMENT)
         let_element.append(self.process_keyword())
         let_element.append(self.process_identifier())
@@ -112,6 +119,7 @@ class CompilationEngine:
         return let_element
 
     def compile_if(self):
+        """ parsing a if statement to tree_element """
         if_element = Element(LabelTypes.IF_STATEMENT)
         if_element.append(self.process_keyword())
         if_element.append(self.process_symbol())
@@ -130,6 +138,7 @@ class CompilationEngine:
         return if_element
 
     def compile_while(self):
+        """ parsing a while statement to tree_element """
         while_element = Element(LabelTypes.WHILE_STATEMENT)
         while_element.append(self.process_keyword())
         while_element.append(self.process_symbol())
@@ -141,6 +150,7 @@ class CompilationEngine:
         return while_element
 
     def compile_do(self):
+        """ parsing a do statement to tree_element """
         do_element = Element(LabelTypes.DO_STATEMENT)
         do_element.append(self.process_keyword())
 
@@ -165,6 +175,7 @@ class CompilationEngine:
         return do_element
 
     def compile_return(self):
+        """ parsing a return statement to tree_element """
         return_element = Element(LabelTypes.RETURN_STATEMENT)
         return_element.append(self.process_keyword())
 
@@ -174,6 +185,7 @@ class CompilationEngine:
         return return_element
 
     def compile_expression(self):
+        """ parsing an expression to a tree_element """
         expression_element = Element(LabelTypes.EXPRESSION)
         expression_element.append(self.compile_term())
         while self.tokenizer.current_token in TokensMapping.op_list:
@@ -182,6 +194,7 @@ class CompilationEngine:
         return expression_element
 
     def compile_term(self):
+        """ parsing a term to atree_element """
         term_element = Element(LabelTypes.TERM)
         if self.tokenizer.current_type == TokenTypes.INT:
             term_element.append(self.process_int())
