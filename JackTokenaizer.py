@@ -6,21 +6,21 @@ class JackTokenaizer:
         self.current_token = None
         self.current_type = None
         self.in_file = open(inputFile, "r")
-        self.next_char= self.in_file.read(1)
-        
+        self.next_char = self.in_file.read(1)
+
     def advance(self):
         buffer = ""
         self.current_token = None
 
         while self.current_token is None:
-            current_char= self.next_char
-            self.next_char= self.in_file.read(1)
+            current_char = self.next_char
+            self.next_char = self.in_file.read(1)
 
             buffer += current_char
-            
-            if buffer=="":
-                return 
-            
+
+            if buffer == "":
+                return
+
             if buffer in {" ", "\n", "\t"}:
                 buffer = ""
 
@@ -55,7 +55,7 @@ class JackTokenaizer:
                 break
 
             if buffer.startswith('"'):
-                while not self.next_char =='"':
+                while not self.next_char == '"':
                     buffer += self.next_char
                     self.next_char = self.in_file.read(1)
                 buffer += self.next_char
@@ -82,14 +82,3 @@ class JackTokenaizer:
     def nextChar(self):
         return self.next_char
 
-
-if __name__ == "__main__":
-    x = JackTokenaizer("./SquareGame.jack")
-    x.advance()
-
-    while x.current_token:
-        x.advance()
-        print(x.current_type)
-        print(x.current_token)
-        print("------------")
-    x.in_file.close()

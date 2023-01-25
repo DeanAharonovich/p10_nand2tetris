@@ -3,25 +3,20 @@ from xml.etree import ElementTree
 from TokensMapping import LabelTypes
 from symbolTable import SymbolTable
 
-kind_to_segment = {'static': 'static',
-                   'field': 'this',
-                   'arg': 'argument',
-                   'var': 'local'}
 
-
-class vmWriter:
+class VmWriter:
     def __init__(self, output_file):
         self.output_file = output_file
         self.symbol_table = SymbolTable()
 
     def compile_vars(self, element):
-        kind, type = list(element)[:2]
+        kind, param_type = list(element)[:2]
         for name in list(element)[2:]:
             if name.text == ",":
                 continue
             if name.text == ";":
                 break
-            self.symbol_table.define(name.text, type.text, kind.text)
+            self.symbol_table.define(name.text, param_type.text, kind.text)
 
     def write_tree(self, tree: ElementTree.Element, parent=None):
         if parent is None:
@@ -91,10 +86,9 @@ class vmWriter:
             self.write_constant(ord(c))
             self.write_call('String.appendChar', 2)
 
-    def compile_term(self, element, parent=None):
-        children = list(element)
-        if len(children) == 1:
-            child = children[0]
+    def compile_term(self, element, should_push_arg=True):
+        if len(element) == 1:
+            child = element[0]
             if child.tag == LabelTypes.INTEGER_CONSTANT:
                 self.write_push("constant", child.text)
 
@@ -102,11 +96,9 @@ class vmWriter:
                 self.handle_str(child)
 
             elif child.tag == LabelTypes.IDENTIFIER:
-                value = self.symbol_table.get_var(children[0].text)
-                self.symbol_table.get_var(children[0].text)
-                if value["kind"] != "argument" or children[0].text in self.symbol_table.ctor_args:
-                    self.write_push(value["kind"], value["index"]) # todo this if above causes problems in the convetToBin test as these args need to be pushed when compiling an if statment
-                elif value["kind"] == "argument":
+                value = self.symbol_table.get_var(child.text)
+                self.symbol_table.get_var(child.text)
+                if value["kind"] != "argument" or should_push_arg:
                     self.write_push(value["kind"], value["index"])
             elif child.tag == LabelTypes.KEYWORD:
                 if child.text == "null" or child.text == "false":
@@ -117,26 +109,24 @@ class vmWriter:
                     self.write_push("constant", 0)
                     self.process_op('~')
 
-        elif len(children) == 2:
-            self.compile_term(children[1])
+        elif len(element) == 2:
+            self.compile_term(element[1])
             child = element[0]
             if child.text == "-":
                 self.write("neg")
             elif child.text == "~":
                 self.process_op(child.text)
-        elif len(children) == 3:
-            self.compile_expression(children[1])
-        elif len(children) == 4:
-            value = self.symbol_table.get_var(children[0].text)
-            # self.write_push(value["kind"], value["index"]) // this push is also dealed in compile_arr
-            if children[1].text == "[":
-                self.compile_arr(children[0].text, children[2])
+        elif len(element) == 3:
+            self.compile_expression(element[1])
+        elif len(element) == 4:
+            if element[1].text == "[":
+                self.compile_arr(element[0].text, element[2])
             else:
-                self.compile_expression(children[2])
-        elif len(children) == 6:
-            expression_list = children[4]
-            class_name = children[0]
-            function = children[2]
+                self.compile_expression(element[2])
+        elif len(element) == 6:
+            class_name = element[0]
+            function = element[2]
+            expression_list = element[4]
 
             value = self.symbol_table.get_var(class_name.text)
             if value is not None:
@@ -153,13 +143,13 @@ class vmWriter:
                 arg_count += 1
             self.write_call(func_cal, arg_count)
 
-    def compile_expression(self, element):
+    def compile_expression(self, element, should_push_arg=True):
         children = list(element)
-        self.compile_term(children[0])
+        self.compile_term(children[0], should_push_arg)
         for i in range((len(children) - 1) // 2):
             op = children[1 + (i * 2)]
             term = children[(i * 2) + 2]
-            self.compile_term(term)
+            self.compile_term(term, should_push_arg)
             self.process_op(op.text)
 
     def process_op(self, op):
@@ -206,7 +196,6 @@ class vmWriter:
         self.write("push constant " + str(self.symbol_table.field_index))
         self.write("call Memory.alloc 1")
         self.write("pop pointer 0")  # this
-        element_num = 1
         for var_dec in [tag for tag in list(body) if tag.tag == LabelTypes.CLASS_VAR_DEC]:
             self.compile_vars(var_dec)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
@@ -219,17 +208,17 @@ class vmWriter:
         param_count = len(list(param_list)) // 2
         if param_count:
             self.compile_arguments(param_list)
-        vars = [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
-        self.write_function(self.symbol_table.class_name, func_name.text, len(vars))
+        var_tags = [tag for tag in list(body) if tag.tag == LabelTypes.VAR_DEC]
+        self.write_function(self.symbol_table.class_name, func_name.text, len(var_tags))
         self.write_push("argument", 0)
         self.write_pop("pointer", 0)
         if param_count:
             self.write_push("argument", param_count)
-        for var_dec in vars:
+        for var_dec in var_tags:
             self.compile_vars(var_dec)
         statements = [tag for tag in list(body) if tag.tag == LabelTypes.STATEMENTS][0]
         for statement in statements:
-            self.compile_statement(statement)
+            self.compile_statement(statement, should_pus_arg=param_count == 0)
 
     def compile_function(self, element):
         self.symbol_table.reset_subroutine()
@@ -248,9 +237,9 @@ class vmWriter:
         for statement in statements:
             self.compile_statement(statement)
 
-    def compile_statement(self, element):
+    def compile_statement(self, element, should_pus_arg=True):
         if element.tag == LabelTypes.LET_STATEMENT:
-            self.compile_let(element)
+            self.compile_let(element, should_pus_arg)
         if element.tag == LabelTypes.IF_STATEMENT:
             self.symbol_table.if_counter += 1
             self.compile_if(element, self.symbol_table.if_counter)
@@ -307,20 +296,20 @@ class vmWriter:
         _, _, while_expression, _, _, statements, _ = element
         counter = self.symbol_table.while_counter
         self.symbol_table.while_counter += 1
-        self.write_Label("WHILE_EXP" + str(counter))
+        self.write_label("WHILE_EXP" + str(counter))
         self.compile_expression(while_expression)
         self.process_op("~")
         self.write_ifgoto("WHILE_END" + str(counter))
         for statement in statements:
             self.compile_statement(statement)
         self.write_goto("WHILE_EXP" + str(counter))
-        self.write_Label("WHILE_END" + str(counter))
+        self.write_label("WHILE_END" + str(counter))
 
-    def compile_let(self, element):
+    def compile_let(self, element, should_pus_arg=True):
         children = list(element)
         if len(children) == 5:
             let, var, equal, expression, semicolon = children
-            self.compile_expression(expression)
+            self.compile_expression(expression, should_pus_arg)
             value = self.symbol_table.get_var(var.text)
             self.write_pop(value["kind"], value["index"])
         else:
@@ -346,21 +335,18 @@ class vmWriter:
             _, _, statements, _ = else_params
             for statement in statements:
                 self.compile_statement(statement)
-            self.write_Label("IF_END{}".format(counter))
+            self.write_label("IF_END{}".format(counter))
 
     def compile_arguments(self, element, is_ctor=False):
         for i in range(((len(element) - 1) // 3) + 1):
-            type = element[i * 3]
+            var_type = element[i * 3]
             name = element[(i * 3) + 1]
-            self.symbol_table.define(name.text, type.text, "argument", is_ctor)
+            self.symbol_table.define(name.text, var_type.text, "argument", is_ctor)
 
     def compile_expression_list(self, expression_list_element):
         for element in expression_list_element:
             if element.tag == LabelTypes.EXPRESSION:
                 self.compile_expression(element)
-
-    def write_Label(self, name):
-        self.write("label " + name)
 
     def write_ifgoto(self, labelname):
         self.write("if-goto " + labelname)

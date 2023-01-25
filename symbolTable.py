@@ -17,6 +17,8 @@ class SymbolTable:
         self.while_counter = 0
         self.if_counter = 0
         self.ctor_args = set()
+        self.if_args = set()
+        self.while_args = set()
 
 
     def define(self, name, type, kind, is_ctor=False):
@@ -45,7 +47,7 @@ class SymbolTable:
         self.if_counter=0
         self.while_counter=0
 
-""" getter functions """
+    """ getter functions """
     def var_count(self, kind):
         return getattr(self, "{}_index".format(kind))
 

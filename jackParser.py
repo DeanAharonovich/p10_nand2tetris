@@ -4,7 +4,7 @@ from JackTokenaizer import JackTokenaizer
 from TokensMapping import TokensMapping, TokenTypes, LabelTypes
 
 
-class CompilationEngine:
+class JackParser:
     def __init__(self, input_file):
         self.input_file = input_file
         self.tokenizer = JackTokenaizer(self.input_file)
@@ -203,7 +203,7 @@ class CompilationEngine:
         elif self.tokenizer.current_type == TokenTypes.STRING:
             term_element.append(self.process_string())
         elif self.tokenizer.current_type == TokenTypes.IDENTIFIER:
-            if self.tokenizer.nextChar() in [" ", ")", "]", ";", "," ,"="]:
+            if self.tokenizer.nextChar() in [" ", ")", "]", ";", ",", "=", "/"]:
                 term_element.append(self.process_identifier())
             elif self.tokenizer.nextChar() == ".":
                 term_element.append(self.process_identifier())
