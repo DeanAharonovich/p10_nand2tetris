@@ -105,7 +105,8 @@ class JackParser:
         return statements_element
 
     def compile_let(self):
-        """ parsing a let statement to tree_element """
+        """ parsing a let statement to tree_element.
+            Handles array usage. """
         let_element = Element(LabelTypes.LET_STATEMENT)
         let_element.append(self.process_keyword())
         let_element.append(self.process_identifier())
@@ -119,7 +120,8 @@ class JackParser:
         return let_element
 
     def compile_if(self):
-        """ parsing a if statement to tree_element """
+        """ parsing an if statement to tree_element.
+            Handles an 'else' statement, if exists. """
         if_element = Element(LabelTypes.IF_STATEMENT)
         if_element.append(self.process_keyword())
         if_element.append(self.process_symbol())
@@ -150,7 +152,8 @@ class JackParser:
         return while_element
 
     def compile_do(self):
-        """ parsing a do statement to tree_element """
+        """ parsing a do statement to tree_element.
+            Handles both function calls and class.function calls """
         do_element = Element(LabelTypes.DO_STATEMENT)
         do_element.append(self.process_keyword())
 
@@ -175,7 +178,8 @@ class JackParser:
         return do_element
 
     def compile_return(self):
-        """ parsing a return statement to tree_element """
+        """ parsing a return statement to tree_element.
+            Handles a void return, and a value return. """
         return_element = Element(LabelTypes.RETURN_STATEMENT)
         return_element.append(self.process_keyword())
 
@@ -185,7 +189,7 @@ class JackParser:
         return return_element
 
     def compile_expression(self):
-        """ parsing an expression to a tree_element """
+        """ parsing an expression to a tree_element by recursively compile each term an op in it. """
         expression_element = Element(LabelTypes.EXPRESSION)
         expression_element.append(self.compile_term())
         while self.tokenizer.current_token in TokensMapping.op_list:
@@ -194,7 +198,7 @@ class JackParser:
         return expression_element
 
     def compile_term(self):
-        """ parsing a term to atree_element """
+        """ parsing a term to a tree_element regarding its token type """
         term_element = Element(LabelTypes.TERM)
         if self.tokenizer.current_type == TokenTypes.INT:
             term_element.append(self.process_int())
@@ -243,6 +247,8 @@ class JackParser:
                 expression_list_element.append(self.process_symbol())
                 expression_list_element.append(self.compile_expression())
         return expression_list_element
+
+    """ -------- PROCESS FUNCTIONS - FOR VALIDATION AND ADVANCING THE TOKENIZER -------- """
 
     def process_symbol(self):
         if self.tokenizer.current_type == TokenTypes.SYMBOL:

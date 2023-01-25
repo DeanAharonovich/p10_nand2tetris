@@ -9,6 +9,7 @@ class JackTokenaizer:
         self.next_char = self.in_file.read(1)
 
     def advance(self):
+        """ getting the next token, by analyzing each char/s and crossing them with the token mapping """
         buffer = ""
         self.current_token = None
 
@@ -80,5 +81,6 @@ class JackTokenaizer:
                 break
 
     def nextChar(self):
+        """ helper method for checking the next char in the file (for L(2) usage)"""
         return self.next_char
 

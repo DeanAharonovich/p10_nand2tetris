@@ -7,6 +7,7 @@ from XmlWriter import XmlWriter
 
 
 def get_jack_file_list(file_path):
+    """ gets a list of jack file/s from file_path """
     files = []
     if os.path.isdir(file_path):
         files = os.listdir(file_path)
@@ -18,6 +19,7 @@ def get_jack_file_list(file_path):
 
 
 def get_output_file_name(file_path, file):
+    """ handles the output file name """
     if os.path.isdir(file_path):
         return os.path.join(file_path, file[:-4])
     else:
@@ -26,11 +28,13 @@ def get_output_file_name(file_path, file):
 
 
 def output_xml(output_file, class_element):
+    """ creates the xml file. Uses xmlWriter """
     with open(output_file, "w") as out_file:
         XmlWriter(out_file).write_tree(class_element)
 
 
 def output_vm(output_file, class_element):
+    """ creates the vm file. Uses vmWriter """
     with open(output_file, "w") as out_file:
         VmWriter(out_file).write_tree(class_element)
 

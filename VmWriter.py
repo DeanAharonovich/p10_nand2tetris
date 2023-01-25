@@ -10,6 +10,7 @@ class VmWriter:
         self.symbol_table = SymbolTable()
 
     def compile_vars(self, element):
+        """ adds the variables to the symbol table """
         kind, param_type = list(element)[:2]
         for name in list(element)[2:]:
             if name.text == ",":
@@ -19,6 +20,7 @@ class VmWriter:
             self.symbol_table.define(name.text, param_type.text, kind.text)
 
     def write_tree(self, tree: ElementTree.Element, parent=None):
+        """ gets a tree element, parsed to tokens, and recursively compiles each part to a vm command. """
         if parent is None:
             self.symbol_table.class_name = tree[1].text
 
@@ -40,6 +42,7 @@ class VmWriter:
                 self.compile_subroutine(element)
 
     def compile_subroutine(self, element):
+        """ compiles a subroutine element  """
         function_type, *args = element
         if function_type.text == "constructor":
             self.compile_constructor(element)
@@ -79,6 +82,7 @@ class VmWriter:
         self.write_push('constant', n)
 
     def write_string(self, s):
+        """ writes a string by calling string.new and appending each char"""
         s = s[1:-1]
         self.write_constant(len(s))
         self.write_call('String.new', 1)
@@ -87,14 +91,13 @@ class VmWriter:
             self.write_call('String.appendChar', 2)
 
     def compile_term(self, element, should_push_arg=True):
+        """ compiles a term with 1 element depending on its token's type """
         if len(element) == 1:
             child = element[0]
             if child.tag == LabelTypes.INTEGER_CONSTANT:
                 self.write_push("constant", child.text)
-
             elif child.tag == LabelTypes.STRING_CONSTANT:
                 self.handle_str(child)
-
             elif child.tag == LabelTypes.IDENTIFIER:
                 value = self.symbol_table.get_var(child.text)
                 self.symbol_table.get_var(child.text)
@@ -109,6 +112,7 @@ class VmWriter:
                     self.write_push("constant", 0)
                     self.process_op('~')
 
+            """ compiles a term with more than 1 element by recursively compile each term  """
         elif len(element) == 2:
             self.compile_term(element[1])
             child = element[0]
@@ -144,6 +148,7 @@ class VmWriter:
             self.write_call(func_cal, arg_count)
 
     def compile_expression(self, element, should_push_arg=True):
+        """ compiles a n expression by compiling each term """
         children = list(element)
         self.compile_term(children[0], should_push_arg)
         for i in range((len(children) - 1) // 2):
@@ -176,15 +181,9 @@ class VmWriter:
         elif op == '~':
             self.write("not")
 
-    def handle_str(self, element):
-        string = element.text
-        self.write_push("constant", len(string))
-        self.write_call("String.new", 1)
-        for i in string:
-            self.write_push("constant", ord(i))
-            self.write_call("String.appendChar", 2)
-
     def compile_constructor(self, element):
+        """ compiles a constructor. Using Memory.alloc. Dealing with var dec and statements.
+            reset the subroutine table """
         self.symbol_table.reset_subroutine()
         keyword, class_name, func_name, _, param_list, _, body = list(element)
         param_count = (len(list(param_list)) // 3) + 1
@@ -203,6 +202,7 @@ class VmWriter:
             self.compile_statement(statement)
 
     def compile_method(self, element):
+        """ compiles a method. Reset the subroutine table """
         self.symbol_table.reset_subroutine()
         keyword, return_type, func_name, _, param_list, _, body = list(element)
         param_count = len(list(param_list)) // 2
@@ -221,6 +221,7 @@ class VmWriter:
             self.compile_statement(statement, should_pus_arg=param_count == 0)
 
     def compile_function(self, element):
+        """ compiles a function. Reset the subroutine table """
         self.symbol_table.reset_subroutine()
         keyword, return_type, func_name, _, param_list, _, body = list(element)
         param_count = len(list(param_list))
@@ -238,6 +239,7 @@ class VmWriter:
             self.compile_statement(statement)
 
     def compile_statement(self, element, should_pus_arg=True):
+        """ compiles a statements regarding the statement's type """
         if element.tag == LabelTypes.LET_STATEMENT:
             self.compile_let(element, should_pus_arg)
         if element.tag == LabelTypes.IF_STATEMENT:
@@ -260,6 +262,7 @@ class VmWriter:
         self.write_return()
 
     def compile_do(self, element):
+        """ compiles a do statement. Dealing with both function call and class.function call """
         do, *children = element
         if len(children) == 7:
             do, class_name, point, function, _, expression_list, _, _ = element
@@ -293,6 +296,7 @@ class VmWriter:
         self.write_pop("temp", 0)
 
     def compile_while(self, element):
+        """ compiles a while statement """
         _, _, while_expression, _, _, statements, _ = element
         counter = self.symbol_table.while_counter
         self.symbol_table.while_counter += 1
@@ -306,6 +310,8 @@ class VmWriter:
         self.write_label("WHILE_END" + str(counter))
 
     def compile_let(self, element, should_pus_arg=True):
+        """ compiles a let statement.
+            if element's number in statement is >5, handles an array usage. """
         children = list(element)
         if len(children) == 5:
             let, var, equal, expression, semicolon = children
@@ -317,6 +323,7 @@ class VmWriter:
             self.compile_arr(var.text, indice, expression)
 
     def compile_if(self, element, counter):
+        """ compiles an if statement. Handles also with 'else' """
         counter = counter - 1
         children = list(element)
         _if, parentheses, expression, parentheses, brackets, statements, brackets, *else_params = children
@@ -338,6 +345,7 @@ class VmWriter:
             self.write_label("IF_END{}".format(counter))
 
     def compile_arguments(self, element, is_ctor=False):
+        """ adds argument to the symbol table """
         for i in range(((len(element) - 1) // 3) + 1):
             var_type = element[i * 3]
             name = element[(i * 3) + 1]
@@ -352,6 +360,7 @@ class VmWriter:
         self.write("if-goto " + labelname)
 
     def compile_arr(self, arr_name, indice_element, expression=None):
+        """ compiles an array usage. Handles the index expression and the assignment expression, if exists. """
         row = self.symbol_table.get_var(arr_name)
         self.compile_expression(indice_element)
         self.write_push(row["kind"], row["index"])
